@@ -17,6 +17,9 @@ def show_img(img, win_title=None):
         if cv2.waitKeyEx(1000) == 27:
             cv2.destroyWindow(win_title)
             break
+def load_color_img(img_path):
+    img = cv2.imread(img_path)
+    return img
 
 def load_gray_img(img_path):
     img = cv2.imread(img_path)
