@@ -3,6 +3,7 @@ import cv2
 import numpy as np
 
 from rxhands.auxiliary import *
+from rxhands.preprocessing import preprocess_image
 import skimage
 
 def main(data_folder="./data/", results_folder="./results/"):
@@ -10,8 +11,11 @@ def main(data_folder="./data/", results_folder="./results/"):
     eight_neighbors = np.ones((3, 3), np.uint8)
     for fname in os.listdir(data_folder) :
         if fname.endswith(".png") or fname.endswith(".tiff") :
-            img = load_gray_img(data_folder + fname)
+            raw_img = load_gray_img(data_folder + fname)
+            img = preprocess_image(raw_img)
+            #img = cv2.equalizeHist(raw_img)
             img_color = load_color_img(data_folder + fname)
+            raw_blur = cv2.medianBlur(raw_img, 7)
             blur = cv2.medianBlur(img, 7)
             #norm_img = cv2.normalize(img, None, 0, 255, cv2.NORM_MINMAX)
 
@@ -110,14 +114,14 @@ def main(data_folder="./data/", results_folder="./results/"):
             to_skel_img = to_skel_img.astype("uint8")*127
             save_img(one_component - to_skel_img, results_folder + "skel/" + fname)
 
-            #
-            # SLIC SUPERPIXELS
-            #
-            sp_mask = cv2.morphologyEx(erode_img, cv2.MORPH_DILATE, eight_neighbors, iterations=3)
-            # Apply slic to reinforced image
-            m_slic = skimage.segmentation.slic(reinforced_edges, n_segments=500, compactness=.1, mask=sp_mask, start_label=1, channel_axis=None)
-            m_slic_boundaries = skimage.segmentation.mark_boundaries(img, m_slic)
-            save_img(skimage.img_as_ubyte(m_slic_boundaries), results_folder + "mslic/" + fname)
+            ##
+            ## SLIC SUPERPIXELS
+            ##
+            #sp_mask = cv2.morphologyEx(erode_img, cv2.MORPH_DILATE, eight_neighbors, iterations=3)
+            ## Apply slic to reinforced image
+            #m_slic = skimage.segmentation.slic(reinforced_edges, n_segments=500, compactness=.1, mask=sp_mask, start_label=1, channel_axis=None)
+            #m_slic_boundaries = skimage.segmentation.mark_boundaries(img, m_slic)
+            #save_img(skimage.img_as_ubyte(m_slic_boundaries), results_folder + "mslic/" + fname)
             
 
 
