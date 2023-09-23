@@ -6,6 +6,32 @@ from rxhands.auxiliary import *
 from rxhands.preprocessing import preprocess_image
 import skimage
 
+def to_one_component(bin_img):
+    eight_neighbors = np.ones((3, 3), np.uint8)
+    # Calculate connected components of binary image
+    # and keep only one
+    ret, marked_img = cv2.connectedComponents(bin_img)
+    center_y = int(marked_img.shape[0]/2)
+    center_x = int(marked_img.shape[1]/2)
+    # Guess the component in the middle
+    selected_component = marked_img[center_y, center_x]
+
+    if selected_component == 0:
+        # Guess a little lower
+        center_y += int(marked_img.shape[0]/4)
+        selected_component = marked_img[center_y, center_x]
+         
+        if selected_component == 0:
+            print("Couldn't find hand: %s" % fname)
+            raise Exception("Nothing found")
+    
+    # Remove every other component, fill holes and save
+    one_component = (marked_img == selected_component).astype("uint8") * 255
+    one_component = cv2.morphologyEx(one_component, cv2.MORPH_DILATE, eight_neighbors, iterations=6)
+    one_component = skimage.morphology.remove_small_holes(one_component == 255, 500)
+    one_component = one_component.astype("uint8") * 255
+    return one_component
+
 def main(data_folder="./data/", results_folder="./results/"):
     kernel = np.ones((5,5), np.uint8)
     eight_neighbors = np.ones((3, 3), np.uint8)
@@ -19,10 +45,18 @@ def main(data_folder="./data/", results_folder="./results/"):
             blur = cv2.medianBlur(img, 7)
             #norm_img = cv2.normalize(img, None, 0, 255, cv2.NORM_MINMAX)
 
-            # 
+             
             # SOBEL FILTER
             #
             sobelxy = cv2.Sobel(blur, ddepth=cv2.CV_64F, dx=1, dy=1, ksize=5) # Combined X and Y Sobel Edge Detection
+            sobelx = cv2.Sobel(blur, ddepth=cv2.CV_64F, dx=0, dy=1, ksize=5) # X Sobel Edge Detection
+            save_img(sobelxy, results_folder + "sobelxy/" + fname)
+            save_img(sobelx, results_folder + "sobelx/" + fname)
+            
+            # CANNY DETECTOR
+            #
+            edges = cv2.Canny(blur, 50, 255)
+            save_img(edges, results_folder + "canny/" + fname)
 
             #
             # ADAPTIVE THRESHOLD
@@ -54,8 +88,8 @@ def main(data_folder="./data/", results_folder="./results/"):
                 thresholds.append(otsu_thr)
             min_threshold = min(thresholds)
             _, patch_threshold_img = cv2.threshold(blur, min_threshold, 255, cv2.THRESH_BINARY)
-            dilate_img = cv2.morphologyEx(patch_threshold_img, cv2.MORPH_DILATE, eight_neighbors, iterations=2)
-            erode_img = cv2.morphologyEx(dilate_img, cv2.MORPH_ERODE, eight_neighbors, iterations=2)
+            dilate_img = cv2.morphologyEx(patch_threshold_img, cv2.MORPH_DILATE, eight_neighbors, iterations=3)
+            erode_img = cv2.morphologyEx(dilate_img, cv2.MORPH_ERODE, eight_neighbors, iterations=3)
             
             # Clone result
             erode_img_original = erode_img.copy()
@@ -86,33 +120,24 @@ def main(data_folder="./data/", results_folder="./results/"):
 
             # Calculate connected components of global Otsu th
             # and keep only one
-            ret, marked_img = cv2.connectedComponents(opening)
-            center_y = int(marked_img.shape[0]/2)
-            center_x = int(marked_img.shape[1]/2)
-            selected_component = marked_img[center_y, center_x]
-
-            if selected_component == 0:
-                center_y += int(marked_img.shape[0]/4)
-                selected_component = marked_img[center_y, center_x]
-                
-                if selected_component == 0:
-                    print("Couldn't find hand: %s" % fname)
-                    continue
-            
-            # Remove every other component, fill holes and save
-            one_component = (marked_img == selected_component).astype("uint8") * 255
-            one_component = cv2.morphologyEx(one_component, cv2.MORPH_DILATE, eight_neighbors, iterations=6)
-            one_component = skimage.morphology.remove_small_holes(one_component == 255, 500)
-            one_component = one_component.astype("uint8") * 255
-            #show_img(one_component, "One component: %s" % (fname))
-            save_img(one_component, results_folder + "otsu/" + fname)
+            try:
+                one_component_global_otsu = to_one_component(opening)
+            except Exception as e:
+                print("Couldn't find hand (global Otsu): %s" % fname)
+                continue
+            save_img(one_component_global_otsu, results_folder + "otsu/" + fname)
 
             #
-            # SKELETONIZE CORE COMPONENT
+            # SKELETONIZE IN LOCAL OTSU ONE COMPONENT
             # 
-            to_skel_img = skimage.morphology.skeletonize(one_component == 255)
-            to_skel_img = to_skel_img.astype("uint8")*127
-            save_img(one_component - to_skel_img, results_folder + "skel/" + fname)
+            try:
+                one_component_local_otsu = to_one_component(erode_img)
+            except:
+                print("Couldn't find hand (local Otsu): %s" % fname)
+            skel_img = skimage.morphology.skeletonize(one_component_local_otsu == 255)
+
+            skel_img = skel_img.astype("uint8")*127
+            save_img(one_component_local_otsu - skel_img, results_folder + "skel/" + fname)
 
             ##
             ## SLIC SUPERPIXELS
