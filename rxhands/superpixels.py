@@ -2,9 +2,12 @@ import os
 import cv2
 import numpy as np
 
+import skimage
+
 from rxhands.auxiliary import *
 from rxhands.preprocessing import preprocess_image
-import skimage
+from rxhands.geometry import *
+
 
 def skeletonize(one_component_img):
     #

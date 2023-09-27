@@ -5,6 +5,7 @@ import numpy as np
 import skimage
 
 from rxhands.auxiliary import *
+from rxhands.geometry import *
 from rxhands.preprocessing import preprocess_image
 from rxhands.segmentation import four_region_segmentation
 from rxhands.superpixels import skeletonize, slic_superpixels
