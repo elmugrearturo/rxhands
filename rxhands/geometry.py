@@ -204,9 +204,22 @@ def main(data_folder="./data/", results_folder="./results/"):
             print("\tCalculated skeleton to border distances")
 
             d_max, d_min, d_std, d_mean, d_median = distances_stats(distances)
-            import ipdb; ipdb.set_trace()
+            # Find center of possible palm
+            center, distance = d_min[0]
+            dic_mean = OrderedDict(d_mean)
+            dic_median = OrderedDict(d_median)
+            print("\tCenter: ", center)
+            print("\tDistance: ", distance)
+            print("\tMean radius: ", dic_mean[center])
+            print("\tMedian radius: ", dic_median[center])
+            no_palm =  cv2.circle(one_component_img, center[::-1], 
+                                  int(distance),
+                                  #int(min(dic_mean[center], dic_median[center])), 
+                                  (0), -1)
+            save_img(no_palm - skel_img, results_folder + "no_palm/" + fname)
+            #import ipdb; ipdb.set_trace()
 
-        break
+        #break
 
 if __name__ == "__main__" :
     main()

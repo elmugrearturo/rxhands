@@ -32,6 +32,29 @@ def save_img(img, output_path="../output.png"):
     cv2.imwrite(output_path, img)
     return True
 
+def get_patch(img, center, size):
+    # Center (i, j)
+    # Only gets complete patches
+    i, j = center
+    half_size = int(size / 2)
+    height, width = img.shape
+    if (i+half_size) >= height \
+            or (i-half_size) < 0 \
+            or (j+half_size) >= width \
+            or (j-half_size) < 0:
+                img = cv2.copyMakeBorder(img, 
+                                         size,
+                                         size,
+                                         size,
+                                         size,
+                                         cv2.BORDER_CONSTANT,
+                                         value=[0, 0, 0])
+                i += size
+                j += size
+    patch = img[i-half_size:i+half_size+1, j-half_size:j+half_size+1]
+    assert patch.shape == (size, size)
+    return patch
+
 def divide_image(img, divisions):
     h, w = img.shape
     patches = []

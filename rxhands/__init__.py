@@ -28,8 +28,10 @@ def main(data_folder="./data/", results_folder="./results/"):
             #
             skel_img = skeletonize(one_component_img)
             save_img(one_component_img - skel_img, results_folder + "skel/" + fname)
-            m_slic, m_slic_boundaries = slic_superpixels(img, one_component_img) 
-            save_img(skimage.img_as_ubyte(m_slic_boundaries), results_folder + "mslic/" + fname)
+            strong_skel = (skel_img != 0).astype("uint8") * 255
+            save_img(cv2.add(raw_img, strong_skel), results_folder + "raw_skel/" + fname)
+            #m_slic, m_slic_boundaries = slic_superpixels(img, one_component_img) 
+            #save_img(skimage.img_as_ubyte(m_slic_boundaries), results_folder + "mslic/" + fname)
             
             #import ipdb;ipdb.set_trace()
         #break
