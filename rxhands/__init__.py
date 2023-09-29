@@ -11,29 +11,19 @@ from rxhands.preprocessing import preprocess_image
 from rxhands.ridge import normalized_ridge_img, sobelx_ridge_img
 from rxhands.segmentation import four_region_segmentation
 from rxhands.superpixels import skeletonize, slic_superpixels
-from rxhands.classification import create_classifier, extract_haar_features
-
+from rxhands.svc_classification import create_classifier
 
 def main(data_folder="./data/", results_folder="./results/", binary_folder="./bin/"):
     
     try:
         with open(binary_folder + "clf.bin", "rb") as fp:
             clf = pickle.load(fp)
-        with open(binary_folder + "feature_type_sel.bin", "rb") as fp:
-            feature_type_sel = pickle.load(fp)
-        with open(binary_folder + "feature_coord_sel.bin", "rb") as fp:
-            feature_coord_sel = pickle.load(fp)
         with open(binary_folder + "selected_img_names.bin", "rb") as fp:
             selected_img_names = pickle.load(fp)
     except:
-        clf, feature_type_sel, feature_coord_sel, selected_img_names = \
-                create_classifier()
+        clf, selected_img_names = create_classifier()
         with open(binary_folder + "clf.bin", "wb") as fp:
             pickle.dump(clf, fp)
-        with open(binary_folder + "feature_type_sel.bin", "wb") as fp:
-            pickle.dump(feature_type_sel, fp)
-        with open(binary_folder + "feature_coord_sel.bin", "wb") as fp:
-            pickle.dump(feature_coord_sel, fp)
         with open(binary_folder + "selected_img_names.bin", "wb") as fp:
             pickle.dump(selected_img_names, fp)
 
@@ -45,7 +35,6 @@ def main(data_folder="./data/", results_folder="./results/", binary_folder="./bi
         elif fname.endswith(".png") or fname.endswith(".tiff") :
             raw_img = load_gray_img(data_folder + fname)
             img = preprocess_image(raw_img)
-            sobel_img = sobelx_ridge_img(img)
             color_img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR) 
             try:
                 one_component_img = four_region_segmentation(img)
@@ -64,13 +53,13 @@ def main(data_folder="./data/", results_folder="./results/", binary_folder="./bi
             # FIND SKELETON POINTS IN RIDGE IMAGE
             #
             skel_positions = find_positions(skel_img)
-            skel_patches = patches_from_positions(sobel_img, 
+            skel_patches = patches_from_positions(img, 
                                                   skel_positions,
-                                                  (25, 25),
+                                                  (51, 51),
                                                   0)
 
             # CLASSIFY
-            X = np.array([extract_haar_features(patch, feature_type_sel, feature_coord_sel) for patch in skel_patches])
+            X = np.array([patch.flatten() for patch in skel_patches])
             y_pred = clf.predict(X)
 
             for i in range(len(skel_positions)):
@@ -78,7 +67,7 @@ def main(data_folder="./data/", results_folder="./results/", binary_folder="./bi
                     color_img = cv2.circle(color_img, skel_positions[i][::-1], 2, (0, 0, 255), -1)
             #        show_img(skel_patches[i], "Skel patch")
             #show_img(color_img, "Candidates")
-            save_img(color_img, results_folder + "classifier/" + fname)
+            save_img(color_img, results_folder + "svc_classifier/" + fname)
 
             #color_img = cv2.circle(color_img, point[::-1], 2, (0, 0, 255), -1)
             #m_slic, m_slic_boundaries = slic_superpixels(img, one_component_img) 
