@@ -4,6 +4,7 @@ import numpy as np
 
 from rxhands.auxiliary import *
 from rxhands.preprocessing import preprocess_image
+from rxhands.ridge import normalized_ridge_img, sobelx_ridge_img
 
 import skimage
 
@@ -16,6 +17,7 @@ poi = [1, 2, 5, 6, 7, 10, 11, 12, 15, 16, 17, 20, 21, 22]
 
 
 def load_data_points(file_path):
+    # Load data points from a TPS file
     img_point_dict = {}
     with open(file_path, "r") as fp:
         point_count = 0
@@ -59,39 +61,47 @@ def correct_point(original_img, point):
     return point
 
 
-def build_training_set(data_folder="./data/", no_images=20):
-    img_point_dict = load_data_points(data_folder + "points/T2.TPS")
-
+def build_training_set(img_folder, point_file_path, no_images, patch_size):
+    img_point_dict = load_data_points(point_file_path)
+    print("Loaded manual tags from: " + point_file_path)
     selected = []
     dataset = []
     y = []
     current_imgs = 0
-    for fname in os.listdir(data_folder) :
+    for fname in os.listdir(img_folder) :
         if fname.endswith(".png") or fname.endswith(".tiff") :
-            raw_img = load_gray_img(data_folder + fname)
-            img = preprocess_image(raw_img)
+            print("\nSelecting: ", fname)
+            raw_img = load_gray_img(img_folder + fname)
+            img = sobelx_ridge_img(preprocess_image(raw_img))
+            print("Preprocessing: ", fname)
+            print("Adding points: ")
             for i, point in enumerate(img_point_dict[fname]): 
                 # Correct point
                 point = correct_point(img, point)
-                try:
-                    patch_i = get_patch(img, point, 25)
-                except:
-                    import ipdb;ipdb.set_trace()
+                patch_i = cut_patch(img, point, patch_size, 0)
+                assert patch_i.shape == patch_size
                 selected.append(fname)
                 dataset.append(patch_i)
                 if i in poi:
+                    print(f"\t{i}: 1")
                     y.append(1)
                 else:
+                    print(f"\t{i}: 0")
                     y.append(0)
             current_imgs += 1
         if current_imgs == no_images:
             break
     return np.array(dataset), np.array(y), selected
 
-def main(data_folder="./data/", results_folder="./results/"):
-    # Load dataset
-    dataset, y, selected = build_training_set()
 
+def create_classifier(img_folder="./data/", point_file_path="./data/points/T2.TPS", no_images=20, patch_size=(25, 25)):
+    # Load dataset
+    dataset, y, selected = build_training_set(img_folder,
+                                              point_file_path,
+                                              no_images,
+                                              patch_size)
+
+    print("\nCalculating complete Haar-like features...")
     # Calculate Haar-like features to build X
     X = np.array([extract_haar_features(img) for img in dataset])
 
@@ -104,6 +114,7 @@ def main(data_folder="./data/", results_folder="./results/"):
         skimage.feature.haar_like_feature_coord(width=dataset.shape[2], 
                                                 height=dataset.shape[1])
 
+    print("\nTraining complete classifier...")
     # Classifier
     clf = RandomForestClassifier(n_estimators=1000, max_depth=None,
                                  max_features=100, n_jobs=-1, random_state=0)
@@ -136,39 +147,11 @@ def main(data_folder="./data/", results_folder="./results/"):
     X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=.5,
                                                         random_state=0,
                                                         stratify=y)
+    print("\nTraining reduced classifier...")
     # New classifier
     clf = RandomForestClassifier(n_estimators=1000, max_depth=None,
                                  max_features=100, n_jobs=-1, random_state=0)
     clf.fit(X_train, y_train)
     auc_subs_features = roc_auc_score(y_test, clf.predict_proba(X_test)[:, 1])
     print(f'Restricted for an AUC of {auc_full_features:.2f}. ')
-    import ipdb;ipdb.set_trace()
-
-
-    # Read previous points
-    img_point_dict = load_data_points(data_folder + "points/T2.TPS")
-    for fname in os.listdir(data_folder):
-        if fname.endswith(".png") or fname.endswith(".tiff") :
-            raw_img = load_gray_img(data_folder + fname)
-            img = preprocess_image(raw_img)
-            color_img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR) 
-
-            points = img_point_dict[fname]
-            for i, point in enumerate(points):
-                # Correct Y (source labeling was shady af, fucking useless ppl)
-                point = correct_point(img, point)
-
-                color_img = cv2.circle(color_img, point[::-1], 2, (0, 0, 255), -1)
-                color_img = cv2.putText(color_img, str(i), point[::-1], cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2, cv2.LINE_AA)
-
-                if i in poi:
-                    patch_i = get_patch(img, point, 25)
-                    show_img(patch_i, "Parche %d" % i)
-
-            show_img(color_img, "Puntos")
-            import ipdb;ipdb.set_trace()
-        break
-
-
-if __name__ == "__main__" :
-    main()
+    return clf, feature_type_sel, feature_coord_sel, selected

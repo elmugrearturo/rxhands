@@ -1,6 +1,8 @@
 import cv2
 import math
 
+import numpy as np
+
 def show_img(img, win_title=None):
     if not win_title:
         win_title = "%dx%d" % img.shape[:2]
@@ -32,9 +34,45 @@ def save_img(img, output_path="../output.png"):
     cv2.imwrite(output_path, img)
     return True
 
-def get_patch(img, center, size):
+def find_positions(bin_img):
+    height, width = bin_img.shape
+    positions = []
+    for i in range(height):
+        for j in range(width):
+            if bin_img[i, j] != 0:
+                positions.append((i, j))
+    return positions
+
+def cut_patch(img, center, size, outside_border_value=-1):
+    # original img
+    # center position (i, j)
+    # size must be a 2-tuple
+    # (height, width)
+    
+    i, j = center
+    height, width = size
+    max_height, max_width = img.shape
+
+    min_height_value = int(np.floor(height / 2))
+    min_width_value = int(np.floor(width / 2))
+
+    patch = []
+    for h in range(min_height_value * (-1) , min_height_value + 1):
+        for w in range(min_height_value * (-1) , min_height_value + 1):
+            if i+h >= 0 and i+h < max_height:
+                if j+w >= 0 and j+w < max_width:
+                    patch.append(img[i+h, j+w])
+                else:
+                    patch.append(outside_border_value)
+            else:
+                patch.append(outside_border_value)
+    patch = np.array(patch)
+    
+    return patch.reshape(size)
+
+def cut_square_patch(img, center, size):
     # Center (i, j)
-    # Only gets complete patches
+    # Only gets complete patches (nothing outside borders)
     i, j = center
     half_size = int(size / 2)
     height, width = img.shape
@@ -54,6 +92,14 @@ def get_patch(img, center, size):
     patch = img[i-half_size:i+half_size+1, j-half_size:j+half_size+1]
     assert patch.shape == (size, size)
     return patch
+
+def patches_from_positions(img, positions, size, outside_border_value):
+    # positions is an iterable of (i,j) points
+    patches = []
+    for point in positions:
+        patch = cut_patch(img, point, size, outside_border_value)
+        patches.append(patch)
+    return np.array(patches)
 
 def divide_image(img, divisions):
     h, w = img.shape

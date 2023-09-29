@@ -12,45 +12,8 @@ from rxhands.superpixels import skeletonize
 
 import skimage
 
-
-def cut_patch(img, i, j, size, outside_border_value=-1):
-    # original img
-    # center position (i, j)
-    # size must be a 2-tuple
-    # (height, width)
-    
-    height, width = size
-    max_height, max_width = img.shape
-
-    min_height_value = int(np.floor(height / 2))
-    min_width_value = int(np.floor(width / 2))
-
-    patch = []
-    for h in range(min_height_value * (-1) , min_height_value + 1):
-        for w in range(min_height_value * (-1) , min_height_value + 1):
-            if i+h >= 0 and i+h < max_height:
-                if j+w >= 0 and j+w < max_width:
-                    patch.append(img[i+h, j+w])
-                else:
-                    patch.append(outside_border_value)
-            else:
-                patch.append(outside_border_value)
-    patch = np.array(patch)
-    
-    return patch.reshape(size)
-
-
-def find_positions(bin_img):
-    height, width = bin_img.shape
-    positions = []
-    for i in range(height):
-        for j in range(width):
-            if bin_img[i, j] != 0:
-                positions.append((i, j))
-    return positions
-
-
 def distances_array_to_list(distances):
+    # Convert from shared memory obj
     for k in distances.keys():
        arr = distances[k]
        distances[k] = []
@@ -58,7 +21,6 @@ def distances_array_to_list(distances):
            if i == 4:
                continue
            distances[k].append(arr[i])
-
 
 def distances_stats(distances):
     distances_max = []
