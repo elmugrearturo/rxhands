@@ -134,6 +134,78 @@ def skel_to_border_distances(bin_img, skel_positions, parallelization_factor=1):
     distances_array_to_list(distances)
     return distances
 
+def recursive_skel_labelling(skel_img, label_img, init_position, label="1"):
+    # 0 1 2
+    # 3 4 5
+    # 6 7 8
+    assert isinstance(label, str)
+    if skel_img[init_position] == 0:
+        return
+    
+    eight_neighbors = np.ones((3, 3), dtype="uint8")
+    eight_neighbors[1, 1] = 0
+    
+    height, width = skel_img.shape
+    current_position = init_position
+
+    while 0 <= current_position[0] < height and 0 <= current_position[1] < width :
+        # Assign label
+        label_img[current_position] = label
+        # Remove from skeleton
+        skel_img[current_position] = 0
+        # Find the path(s)
+        patch = cut_patch(skel_img, current_position, (3, 3), 0)
+        conv_patch = (eight_neighbors * patch).flatten()
+        no_paths = np.sum(conv_patch)
+        if no_paths == 0:
+            return
+        elif no_paths == 1:
+            # Just continue following the path without changing label
+            for p in range(9):
+                if conv_patch[p] != 0:
+                    if p in [0, 1, 2]:
+                        next_i = current_position[0] - 1
+                    elif p in [3, 5]:
+                        next_i = current_position[0]
+                    elif p in [6, 7, 8]:
+                        next_i = current_position[0] + 1
+                    
+                    if p in [0, 3, 6]:
+                        next_j = current_position[1] - 1
+                    elif p in [1, 7]:
+                        next_j = current_position[1]
+                    elif p in [2, 5, 8]:
+                        next_j = current_position[1] + 1
+                            
+                    current_position = (next_i, next_j)
+                    break
+        else:
+            # Change label for every path
+            for p in range(9):
+                if conv_patch[p] != 0:
+                    if p in [0, 1, 2]:
+                        next_i = current_position[0] - 1
+                    elif p in [3, 5]:
+                        next_i = current_position[0]
+                    elif p in [6, 7, 8]:
+                        next_i = current_position[0] + 1
+                    
+                    if p in [0, 3, 6]:
+                        next_j = current_position[1] - 1
+                    elif p in [1, 7]:
+                        next_j = current_position[1]
+                    elif p in [2, 5, 8]:
+                        next_j = current_position[1] + 1
+                            
+                    next_position = (next_i, next_j)
+                    next_label = label + str(p)
+                    recursive_skel_labelling(skel_img, label_img, next_position, next_label)
+            return
+
+def label_skel_branches(skel_img, initial_point):
+    labeled_skel_img = skel_img.astype("object")
+    recursive_skel_labelling(skel_img.copy(), labeled_skel_img, initial_point)
+    return labeled_skel_img
 
 def main(data_folder="./data/", results_folder="./results/"):
     kernel = np.ones((5,5), np.uint8)
@@ -153,7 +225,7 @@ def main(data_folder="./data/", results_folder="./results/"):
             #
             # SKELETONIZE
             #
-            skel_img = skeletonize(one_component_img)
+            skel_img = skeletonize(one_component_img, 1)
             print("\tCalculated skeleton")
             #save_img(one_component_img - skel_img, results_folder + "skel/" + fname)
             
@@ -161,6 +233,13 @@ def main(data_folder="./data/", results_folder="./results/"):
             skel_positions = find_positions(skel_img)
             print("\tCalculated skeleton pixel positions")
 
+            # Prune skeleton
+            skel_positions.sort(reverse=True)
+            lowest_skel_positions = [point for point in skel_positions if point[0] == skel_positions[0][0]]
+            lowest_skel_positions.sort()
+            initial_position = lowest_skel_positions[0]
+            labeled_skel_img = label_skel_branches(skel_img, initial_position)
+            show_img(labeled_skel_img, "labeled img")
             # Find distance to border of each skeleton pixel
             distances = skel_to_border_distances(one_component_img, skel_positions, 8)
             print("\tCalculated skeleton to border distances")

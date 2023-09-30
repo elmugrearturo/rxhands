@@ -62,8 +62,9 @@ def build_training_set(img_folder, point_file_path, no_images, patch_size):
         if fname.endswith(".png") or fname.endswith(".tiff") :
             print("\nSelecting: ", fname)
             raw_img = load_gray_img(img_folder + fname)
-            img = preprocess_image(raw_img)
             print("Preprocessing: ", fname)
+            img = preprocess_image(raw_img)
+            img = sobelx_ridge_img(img)
             print("Adding points: ")
             for i, point in enumerate(img_point_dict[fname]): 
                 # Correct point

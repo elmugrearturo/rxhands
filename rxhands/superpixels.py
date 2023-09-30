@@ -10,13 +10,13 @@ from rxhands.geometry import *
 from rxhands.segmentation import four_region_segmentation
 
 
-def skeletonize(one_component_img):
+def skeletonize(one_component_img, skeleton_value=127):
     #
     # SKELETONIZE IN LOCAL OTSU ONE COMPONENT
     # 
     skel_img = skimage.morphology.skeletonize(one_component_img == 255)
 
-    skel_img = skel_img.astype("uint8")*127
+    skel_img = skel_img.astype("uint8")*skeleton_value
     #save_img(one_component_local_otsu - skel_img, results_folder + "skel/" + fname)
 
     return skel_img

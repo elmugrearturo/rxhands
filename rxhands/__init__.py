@@ -36,6 +36,7 @@ def main(data_folder="./data/", results_folder="./results/", binary_folder="./bi
             raw_img = load_gray_img(data_folder + fname)
             img = preprocess_image(raw_img)
             color_img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR) 
+            ridge_img = sobelx_ridge_img(img)
             try:
                 one_component_img = four_region_segmentation(img)
             except Exception as e:
@@ -53,7 +54,7 @@ def main(data_folder="./data/", results_folder="./results/", binary_folder="./bi
             # FIND SKELETON POINTS IN RIDGE IMAGE
             #
             skel_positions = find_positions(skel_img)
-            skel_patches = patches_from_positions(img, 
+            skel_patches = patches_from_positions(ridge_img, 
                                                   skel_positions,
                                                   (51, 51),
                                                   0)
