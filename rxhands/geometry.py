@@ -205,7 +205,13 @@ def recursive_skel_labelling(skel_img, label_img, init_position, label="1"):
 def label_skel_branches(skel_img, initial_point):
     labeled_skel_img = skel_img.astype("object")
     recursive_skel_labelling(skel_img.copy(), labeled_skel_img, initial_point)
-    return labeled_skel_img
+    labeled_skel_img[labeled_skel_img == 0] = "0"
+    all_labels = np.unique(labeled_skel_img)
+    relevant_labels = [l for l in all_labels if l != "0"]
+    final_labeled_skel_img = np.zeros(skel_img.shape, dtype="uint8")
+    for i, label in enumerate(relevant_labels):
+        final_labeled_skel_img[labeled_skel_img == label] = 255-i
+    return final_labeled_skel_img
 
 def main(data_folder="./data/", results_folder="./results/"):
     kernel = np.ones((5,5), np.uint8)
@@ -239,25 +245,33 @@ def main(data_folder="./data/", results_folder="./results/"):
             lowest_skel_positions.sort()
             initial_position = lowest_skel_positions[0]
             labeled_skel_img = label_skel_branches(skel_img, initial_position)
-            show_img(labeled_skel_img, "labeled img")
-            # Find distance to border of each skeleton pixel
-            distances = skel_to_border_distances(one_component_img, skel_positions, 8)
-            print("\tCalculated skeleton to border distances")
+            unique_labels = np.unique(labeled_skel_img, return_counts=True)
+            zipped_labels = [l for l in zip(unique_labels[0], unique_labels[1])]
+            zipped_labels.sort(key=lambda x: x[1], reverse=True)
+            # Only use the 5 longest
+            for label, counts in zipped_labels[6:]:
+                labeled_skel_img[labeled_skel_img == label] = 0
+            colored_skel_img = cv2.applyColorMap(labeled_skel_img, cv2.COLORMAP_JET)
+            #show_img(colored_skel_img, "labeled img")
+            save_img(colored_skel_img, results_folder + "prune_skel/" + fname)
+            ## Find distance to border of each skeleton pixel
+            #distances = skel_to_border_distances(one_component_img, skel_positions, 8)
+            #print("\tCalculated skeleton to border distances")
 
-            d_max, d_min, d_std, d_mean, d_median = distances_stats(distances)
-            # Find center of possible palm
-            center, distance = d_min[0]
-            dic_mean = OrderedDict(d_mean)
-            dic_median = OrderedDict(d_median)
-            print("\tCenter: ", center)
-            print("\tDistance: ", distance)
-            print("\tMean radius: ", dic_mean[center])
-            print("\tMedian radius: ", dic_median[center])
-            no_palm =  cv2.circle(one_component_img, center[::-1], 
-                                  int(distance),
-                                  #int(min(dic_mean[center], dic_median[center])), 
-                                  (0), -1)
-            save_img(no_palm - skel_img, results_folder + "no_palm/" + fname)
+            #d_max, d_min, d_std, d_mean, d_median = distances_stats(distances)
+            ## Find center of possible palm
+            #center, distance = d_min[0]
+            #dic_mean = OrderedDict(d_mean)
+            #dic_median = OrderedDict(d_median)
+            #print("\tCenter: ", center)
+            #print("\tDistance: ", distance)
+            #print("\tMean radius: ", dic_mean[center])
+            #print("\tMedian radius: ", dic_median[center])
+            #no_palm =  cv2.circle(one_component_img, center[::-1], 
+            #                      int(distance),
+            #                      #int(min(dic_mean[center], dic_median[center])), 
+            #                      (0), -1)
+            #save_img(no_palm - skel_img, results_folder + "no_palm/" + fname)
             #import ipdb; ipdb.set_trace()
 
         #break
