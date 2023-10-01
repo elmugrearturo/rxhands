@@ -213,6 +213,28 @@ def label_skel_branches(skel_img, initial_point):
         final_labeled_skel_img[labeled_skel_img == label] = 255-i
     return final_labeled_skel_img
 
+def prune_skeleton(skel_img, max_no_branches=5):
+    assert len(np.unique(skel_img)) == 2
+    assert np.unique(skel_img)[1] == 1
+    # Skeleton to (i, j) positions
+    skel_positions = find_positions(skel_img)
+    # Find the lowest position in i
+    skel_positions.sort(reverse=True)
+    lowest_skel_positions = [point for point in skel_positions if point[0] == skel_positions[0][0]]
+    # Find the lowest position in j
+    lowest_skel_positions.sort()
+    initial_position = lowest_skel_positions[0]
+    # Label skeleton branches starting in lowest position (i, j)
+    labeled_skel_img = label_skel_branches(skel_img, initial_position)
+    # Check length of resulting branches
+    unique_labels = np.unique(labeled_skel_img, return_counts=True)
+    zipped_labels = [l for l in zip(unique_labels[0], unique_labels[1])]
+    zipped_labels.sort(key=lambda x: x[1], reverse=True)
+    # Only use the max_no_branches longest branches
+    for label, counts in zipped_labels[max_no_branches + 1 : ]:
+        labeled_skel_img[labeled_skel_img == label] = 0
+    return labeled_skel_img
+
 def main(data_folder="./data/", results_folder="./results/"):
     kernel = np.ones((5,5), np.uint8)
     eight_neighbors = np.ones((3, 3), np.uint8)
@@ -236,21 +258,12 @@ def main(data_folder="./data/", results_folder="./results/"):
             #save_img(one_component_img - skel_img, results_folder + "skel/" + fname)
             
             # Find position of skeleton pixels
-            skel_positions = find_positions(skel_img)
-            print("\tCalculated skeleton pixel positions")
+            #skel_positions = find_positions(skel_img)
+            #print("\tCalculated skeleton pixel positions")
 
             # Prune skeleton
-            skel_positions.sort(reverse=True)
-            lowest_skel_positions = [point for point in skel_positions if point[0] == skel_positions[0][0]]
-            lowest_skel_positions.sort()
-            initial_position = lowest_skel_positions[0]
-            labeled_skel_img = label_skel_branches(skel_img, initial_position)
-            unique_labels = np.unique(labeled_skel_img, return_counts=True)
-            zipped_labels = [l for l in zip(unique_labels[0], unique_labels[1])]
-            zipped_labels.sort(key=lambda x: x[1], reverse=True)
-            # Only use the 5 longest
-            for label, counts in zipped_labels[6:]:
-                labeled_skel_img[labeled_skel_img == label] = 0
+            print("\tPrunning skeleton")
+            labeled_skel_img = prune_skeleton(skel_img)
             colored_skel_img = cv2.applyColorMap(labeled_skel_img, cv2.COLORMAP_JET)
             #show_img(colored_skel_img, "labeled img")
             save_img(colored_skel_img, results_folder + "prune_skel/" + fname)

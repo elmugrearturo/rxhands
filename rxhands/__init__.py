@@ -42,24 +42,35 @@ def main(data_folder="./data/", results_folder="./results/", binary_folder="./bi
             except Exception as e:
                 print("Couldn't find hand: %s" % fname, " ", e)
                 continue
+            print(f"Image {fname}")
             #
             # SKELETONIZE
             #
+            print(f"\tCalculating skeleton...")
             skel_img = skeletonize(one_component_img)
             save_img(one_component_img - skel_img, results_folder + "skel/" + fname)
-            strong_skel = (skel_img != 0).astype("uint8") * 255
+
+            # PRUNE SKELETON
+            print(f"\tPrunning skeleton...")
+            # Skeleton has to be marked with 1s
+            prunned_skel_img = prune_skeleton((skel_img != 0).astype("uint8"))
+            
+            print(f"\tSaving prunned skeleton...")
+            strong_skel = (prunned_skel_img != 0).astype("uint8") * 255
             save_img(cv2.add(raw_img, strong_skel), results_folder + "raw_skel/" + fname)
             
             # 
             # FIND SKELETON POINTS IN RIDGE IMAGE
             #
-            skel_positions = find_positions(skel_img)
+            print(f"\tFinding skeleton positions in classifier img...")
+            skel_positions = find_positions(prunned_skel_img)
             skel_patches = patches_from_positions(ridge_img, 
                                                   skel_positions,
                                                   (51, 51),
                                                   0)
 
             # CLASSIFY
+            print(f"\tClassifiying patches...")
             X = np.array([patch.flatten() for patch in skel_patches])
             y_pred = clf.predict(X)
 
