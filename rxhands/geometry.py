@@ -235,6 +235,96 @@ def prune_skeleton(skel_img, max_no_branches=5):
         labeled_skel_img[labeled_skel_img == label] = 0
     return labeled_skel_img
 
+def check_gaps_per_row(bin_img, rows=None):
+    height, width = bin_img.shape
+    if rows == None:
+        rows = range(height)
+
+    all_filled = []
+    all_gaps = []
+    for i in rows:
+        last_position = (i, 0)
+        final_position = (i, width-1)
+        filled = []
+        gaps = []
+
+        if bin_img[last_position] != 0:
+            is_filled = True
+        else:
+            is_filled = False
+
+        for j in range(1, width):
+            current_position = (i, j)
+            if is_filled:
+                if bin_img[current_position] != 0:
+                    continue
+                else:
+                    filled.append((last_position, (i, j-1)))
+                    last_position = current_position
+                    is_filled = False
+            else:
+                if bin_img[current_position] == 0:
+                    continue
+                else:
+                    gaps.append((last_position, (i, j-1)))
+                    last_position = current_position
+                    is_filled = True
+
+        if last_position != final_position:
+            assert last_position[1] < final_position[1]
+            if is_filled:
+                filled.append((last_position, final_position))
+            else:
+                gaps.append((last_position, final_position))
+        all_filled.append(filled)
+        all_gaps.append(gaps)
+    return all_filled, all_gaps
+
+def check_gaps_per_row_alt(bin_img, rows=None):
+    height, width = bin_img.shape
+    if rows == None:
+        rows = range(height)
+    filled_positions = [p for p in zip(*np.where(bin_img != 0))]
+
+    intervals = []
+    for i in rows:
+        last_position = (i, 0)
+        final_position = (i, width-1)
+        filled = []
+        gaps = []
+
+        if last_position in filled_positions:
+            is_filled = True
+            row.pop(0)
+        else:
+            is_filled = False
+
+        for j in range(1, width):
+            current_position = (i, j)
+            if is_filled:
+                if current_position in filled_positions:
+                    continue
+                else:
+                    filled.append((last_position, (i, j-1)))
+                    last_position = current_position
+                    is_filled = False
+            else:
+                if current_position not in filled_positions:
+                    continue
+                else:
+                    gaps.append((last_position, (i, j-1)))
+                    last_position = current_position
+                    is_filled = True
+
+        if last_position != final_position:
+            assert last_position[1] < final_position[1]
+            if is_filled:
+                filled.append((last_position, final_position))
+            else:
+                gaps.append((last_position, final_position))
+        intervals.append((filled, gaps))
+    return intervals
+
 def main(data_folder="./data/", results_folder="./results/"):
     kernel = np.ones((5,5), np.uint8)
     eight_neighbors = np.ones((3, 3), np.uint8)

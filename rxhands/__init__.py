@@ -43,6 +43,13 @@ def main(data_folder="./data/", results_folder="./results/", binary_folder="./bi
                 print("Couldn't find hand: %s" % fname, " ", e)
                 continue
             print(f"Image {fname}")
+
+            ##
+            ## FIND GAPS
+            ##
+            #filled, gaps = check_gaps_per_row(one_component_img)
+            #import ipdb;ipdb.set_trace()
+
             #
             # SKELETONIZE
             #
