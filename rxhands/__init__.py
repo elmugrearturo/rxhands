@@ -7,6 +7,7 @@ import skimage
 
 from rxhands.auxiliary import *
 from rxhands.geometry import *
+from rxhands.hand_model import find_thumb_cut_point
 from rxhands.preprocessing import preprocess_image
 from rxhands.ridge import normalized_ridge_img, sobelx_ridge_img
 from rxhands.segmentation import four_region_segmentation
@@ -66,11 +67,20 @@ def main(data_folder="./data/", results_folder="./results/", binary_folder="./bi
             strong_skel = (prunned_skel_img != 0).astype("uint8") * 255
             save_img(cv2.add(raw_img, strong_skel), results_folder + "raw_skel/" + fname)
             
+            #
+            # FIND FINGERS
+            #
+            #
+            print(f"\tLabeling finger positions...")
+            skel_positions = find_positions(prunned_skel_img)
+            # THUMB
+            thumb_cut_point, _ = find_thumb_cut_point(one_component_img, skel_positions)
+            return
+
             # 
             # FIND SKELETON POINTS IN RIDGE IMAGE
             #
             print(f"\tFinding skeleton positions in classifier img...")
-            skel_positions = find_positions(prunned_skel_img)
             skel_patches = patches_from_positions(ridge_img, 
                                                   skel_positions,
                                                   (51, 51),

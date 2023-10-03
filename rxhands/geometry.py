@@ -12,6 +12,13 @@ from rxhands.superpixels import skeletonize
 
 import skimage
 
+def euclidean_distance(p, q):
+    assert len(p) == len(q)
+    total = 0
+    for i in range(len(p)):
+        total += np.power(q[i] - p[i], 2)
+    return np.sqrt(total)
+
 def distances_array_to_list(distances):
     # Convert from shared memory obj
     for k in distances.keys():
@@ -354,9 +361,9 @@ def main(data_folder="./data/", results_folder="./results/"):
             # Prune skeleton
             print("\tPrunning skeleton")
             labeled_skel_img = prune_skeleton(skel_img)
-            colored_skel_img = cv2.applyColorMap(labeled_skel_img, cv2.COLORMAP_JET)
+            #colored_skel_img = cv2.applyColorMap(labeled_skel_img, cv2.COLORMAP_JET)
             #show_img(colored_skel_img, "labeled img")
-            save_img(colored_skel_img, results_folder + "prune_skel/" + fname)
+            save_img(labeled_skel_img, results_folder + "prune_skel/" + fname)
             ## Find distance to border of each skeleton pixel
             #distances = skel_to_border_distances(one_component_img, skel_positions, 8)
             #print("\tCalculated skeleton to border distances")

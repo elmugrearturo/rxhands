@@ -35,6 +35,10 @@ def save_img(img, output_path="../output.png"):
     return True
 
 def find_positions(bin_img):
+    positions = [p for p in zip(*np.where(bin_img != 0))]
+    return positions
+
+def find_positions_alt(bin_img):
     height, width = bin_img.shape
     positions = []
     for i in range(height):
