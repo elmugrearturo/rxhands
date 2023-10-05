@@ -10,18 +10,6 @@ from rxhands.geometry import *
 from rxhands.segmentation import four_region_segmentation
 
 
-def skeletonize(one_component_img, skeleton_value=127):
-    #
-    # SKELETONIZE IN LOCAL OTSU ONE COMPONENT
-    # 
-    skel_img = skimage.morphology.skeletonize(one_component_img == 255)
-
-    skel_img = skel_img.astype("uint8")*skeleton_value
-    #save_img(one_component_local_otsu - skel_img, results_folder + "skel/" + fname)
-
-    return skel_img
-
-
 def slic_superpixels(img, sp_mask=None, n_segments=100, compactness=.1):
     #
     # SLIC SUPERPIXELS
@@ -54,13 +42,6 @@ def main(data_folder="./data/", results_folder="./results/"):
                 continue
             print("\tCalculated one-component img")
 
-            #
-            # SKELETONIZE
-            #
-            skel_img = skeletonize(one_component_img)
-            print("\tCalculated skeleton")
-            save_img(one_component_img - skel_img, results_folder + "skel/" + fname)
-            
             m_slic, m_slic_boundaries = watershed_superpixels(img, one_component_img, 200, .001)
             save_img(skimage.img_as_ubyte(m_slic_boundaries), results_folder + "mslic/" + fname)
             #import ipdb; ipdb.set_trace()

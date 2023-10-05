@@ -8,9 +8,19 @@ from collections import OrderedDict
 from rxhands.auxiliary import *
 from rxhands.preprocessing import preprocess_image
 from rxhands.segmentation import four_region_segmentation
-from rxhands.superpixels import skeletonize
 
 import skimage
+
+def skeletonize(one_component_img, skeleton_value=127):
+    #
+    # SKELETONIZE IN LOCAL OTSU ONE COMPONENT
+    # 
+    skel_img = skimage.morphology.skeletonize(one_component_img == 255)
+
+    skel_img = skel_img.astype("uint8")*skeleton_value
+    #save_img(one_component_local_otsu - skel_img, results_folder + "skel/" + fname)
+
+    return skel_img
 
 def euclidean_distance(p, q):
     assert len(p) == len(q)
@@ -58,7 +68,7 @@ def distances_stats(distances):
     return distances_max, distances_min, distances_std, distances_mean, distances_median
 
 
-def distance_to_border(img, i, j, kernel):
+def distance_to_border(img, center, kernel):
     # position i, j
     # kernel must be 3x3 with
     # only 1 direction marked
@@ -66,8 +76,9 @@ def distance_to_border(img, i, j, kernel):
     assert kernel.shape[0] == 3 and kernel.shape[1] == 3
     assert np.sum(kernel) == 1
     assert kernel[1, 1] == 0
-    
-    values = cut_patch(img, i, j, (3, 3))
+
+    i, j = center
+    values = cut_patch(img, center, (3, 3))
     masked_values = values * kernel
     total = np.sum(masked_values)
     if total == 0:
@@ -101,11 +112,31 @@ def distance_to_border(img, i, j, kernel):
         elif k_position == 8:
             new_i = i + 1
             new_j = j + 1
-        
-        return 1 + distance_to_border(img, new_i, new_j, kernel)
+        new_center = (new_i, new_j) 
+        return 1 + distance_to_border(img, new_center, kernel)
 
+
+def position_to_border_distances(bin_img, position, directions=range(9)):
+    # Single process
+    # 0 1 2
+    # 3 - 5
+    # 6 7 8
+    assert 0 < len(directions) < 9
+    distances = np.ones(9, dtype="int32") * -1
+    for i in directions:
+        if i == 4:
+            continue
+        elif 0 <= i <= 8:
+            kernel = np.zeros(9, dtype=np.uint32)
+            kernel[i] = 1
+            kernel = kernel.reshape((3, 3))
+            distances[i] = 1 + distance_to_border(bin_img, position, kernel)
+        else:
+            raise ValueError("Direction not defined")
+    return distances
 
 def pixel_to_border_distances(bin_img, position, distances):
+    # Multiprocess
     # distances is mp.Array
 
     for i in range(9):
@@ -114,7 +145,7 @@ def pixel_to_border_distances(bin_img, position, distances):
         kernel = np.zeros(9, dtype=np.uint32)
         kernel[i] = 1
         kernel = kernel.reshape((3, 3))
-        dist = distance_to_border(bin_img, position[0], position[1], kernel)
+        dist = distance_to_border(bin_img, position, kernel)
         distances[i] = dist
 
 
@@ -352,7 +383,8 @@ def main(data_folder="./data/", results_folder="./results/"):
             #
             skel_img = skeletonize(one_component_img, 1)
             print("\tCalculated skeleton")
-            #save_img(one_component_img - skel_img, results_folder + "skel/" + fname)
+            strong_skel_img = (skel_img != 0).astype("uint8") * 255
+            save_img(one_component_img - strong_skel_img, results_folder + "skel/" + fname)
             
             # Find position of skeleton pixels
             #skel_positions = find_positions(skel_img)
