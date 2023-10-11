@@ -1,5 +1,6 @@
 
 from rxhands.geometry import *
+from rxhands.clustering import dbscan_clustering, kmeans_clustering
 from rxhands.ridge import normalized_ridge_img, sobelx_ridge_img
 from random import randint
 
@@ -53,15 +54,27 @@ class Region(object):
             # Less than 90deg
             self.inclination = 1
 
-        self.predicted = []
+        self.predictions = []
 
     def get_predicted(self):
         all_predicted = []
-        for i in range(len(self.predicted)):
-            prediction = self.predicted[i]
+        for i in range(len(self.predictions)):
+            prediction = self.predictions[i]
             if prediction == 1:
                 all_predicted.append(self.positions[i])
         return all_predicted
+    
+    def approximate_prediction_points(self, clustering_algorithm="kmeans"):
+        predicted = self.get_predicted()
+        if len(predicted) != 0:
+            try:
+                if clustering_algorithm == "kmeans":
+                    return kmeans_clustering(predicted)
+                elif clustering_algorithm == "dbscan":
+                    return dbscan_clustering(predicted)
+            except Exception as e:
+                print(e)
+        return {}
 
     def paint_region(self, color_img):
         color = [randint(0, 255), randint(0, 255), randint(0, 255)]
@@ -85,9 +98,9 @@ class Region(object):
                                 color,
                                 4)
 
-        if len(self.predicted) > 0:
+        if len(self.predictions) > 0:
             for i in range(len(self.positions)):
-                if self.predicted[i] == 1:
+                if self.predictions[i] == 1:
                     color_img = cv2.circle(color_img, self.positions[i][::-1], 2, (0, 0, 255), -1)
         return color_img
 
@@ -116,6 +129,7 @@ class Finger(Region):
                                 [255, 255, 255],
                                 4)
         return super(Finger, self).paint_region(color_img)
+
     
 
 class Knuckles(Region):
@@ -299,14 +313,14 @@ class Hand(object):
             skeleton_point = relevant_skeleton_points[selected]
         return optimal_point, skeleton_point
 
-    def classify_points(self, clf):
+    def classify_internal_finger_points(self, clf):
         # 
         # FIND FINGER POINTS IN RIDGE IMAGE
         #
         i = 0
         for finger in self.fingers:
             i += 1
-            if finger.angle >= 75:
+            if finger.angle > 75:
                 # Almost straight finger
                 print(f"\t\t Finger {i} (straight):")
                 
@@ -315,14 +329,32 @@ class Hand(object):
                                                       finger.positions,
                                                       (51, 51),
                                                       0)
-
-                # CLASSIFY
-                print(f"\t\t\tClassifiying patches...")
-                X = np.array([patch.flatten() for patch in skel_patches])
-                y_pred = clf.predict(X)
-                finger.predicted = y_pred
-
             else:
                 print(f"\t\t Finger {i} (inclination):")
-                pass
+                if finger.inclination < 0 :
+                    # left inclination, rotate right
+                    rotation_matrix = get_rotation_matrix(self.raw_img, -30)
+                    classifier_img = self.classifier_right_img
+                    #show_img(self.classifier_right_img, "right")
+                else :
+                    # right inclination, rotate left
+                    rotation_matrix = get_rotation_matrix(self.raw_img, 30) 
+                    classifier_img = self.classifier_left_img
+                    #show_img(self.classifier_left_img, "left")
+                
+                # Get transformed positions
+                print(f"\t\t\tFinding skeleton positions in classifier img...")
+                rotated_positions = transform_positions(finger.positions, rotation_matrix)
+                skel_patches = patches_from_positions(classifier_img,
+                                                      rotated_positions,
+                                                      (51, 51),
+                                                      0)
+                #for patch in skel_patches:
+                #    show_img(patch, "patch")
+            # CLASSIFY
+            print(f"\t\t\tClassifiying patches...")
+            X = np.array([patch.flatten() for patch in skel_patches])
+            y_pred = clf.predict(X)
+            finger.predictions = y_pred
+
 

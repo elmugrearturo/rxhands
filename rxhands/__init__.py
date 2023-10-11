@@ -9,7 +9,6 @@ from rxhands.auxiliary import *
 from rxhands.hand_model import Hand
 from rxhands.preprocessing import preprocess_image
 #from rxhands.ridge import normalized_ridge_img, sobelx_ridge_img
-from rxhands.clustering import dbscan_clustering, kmeans_clustering
 from rxhands.segmentation import four_region_segmentation
 from rxhands.superpixels import skeletonize, slic_superpixels
 from rxhands.svc_classification import create_classifier
@@ -60,7 +59,7 @@ def main(data_folder="./data/", results_folder="./results/", binary_folder="./bi
             ## 
             ## CLASSIFY
             ##
-            partial_hand_model.classify_points(clf)
+            partial_hand_model.classify_internal_finger_points(clf)
             
             ## 
             ## DISPLAY
@@ -70,15 +69,9 @@ def main(data_folder="./data/", results_folder="./results/", binary_folder="./bi
             marked_img = partial_hand_model.paint_to_img(raw_img)
             
             for finger in partial_hand_model.fingers:
-                predicted = finger.get_predicted()
-                if len(predicted) != 0:
-                    #clusters = dbscan_clustering(predicted)
-                    try:
-                        clusters = kmeans_clustering(predicted)
-                    except:
-                        continue
-                    for label in clusters:
-                        marked_img = cv2.circle(marked_img, clusters[label][::-1], 2, (0, 255, 0), -1)
+                clusters = finger.approximate_prediction_points("kmeans")
+                for label in clusters:
+                    marked_img = cv2.circle(marked_img, clusters[label][::-1], 2, (0, 255, 0), -1)
 
             save_img(marked_img, results_folder + "hand_model/" + fname)
             

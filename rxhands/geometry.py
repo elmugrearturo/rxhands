@@ -13,15 +13,31 @@ import skimage
 
 
 def rotate_img(img, angle, rotation_point=None):
-    # rotation_point (i, j)
+    ''' rotation_point (i, j) '''
+    height, width = img.shape
+    rotation_matrix = get_rotation_matrix(img, angle, rotation_point)
+    rotated_img = cv2.warpAffine(img, rotation_matrix, (width, height))
+    return rotated_img
+
+def get_rotation_matrix(img, angle, rotation_point=None):
     height, width = img.shape
     if rotation_point != None:
         assert len(rotation_point) == 2
     else:
         rotation_point = (int(height/2), int(width/2)) # (i,j)
     rotation_matrix = cv2.getRotationMatrix2D(rotation_point[::-1], angle, 1.0)
-    rotated_img = cv2.warpAffine(img, rotation_matrix, (width, height))
-    return rotated_img
+    return rotation_matrix
+
+def transform_positions(positions, rotation_matrix):
+    new_positions = []
+    for position in positions:
+        modif_position = np.ones(3)
+        # Invert (i,j) to (x,y,1)
+        modif_position[1] = position[0]
+        modif_position[0] = position[1]
+        new_position = np.matmul(rotation_matrix, modif_position).astype("uint32")
+        new_positions.append(new_position[::-1])
+    return new_positions
 
 def centroid(points):
     new_i = 0
