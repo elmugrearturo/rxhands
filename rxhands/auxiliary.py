@@ -106,6 +106,7 @@ def patches_from_positions(img, positions, size, outside_border_value):
     return np.array(patches)
 
 def divide_image(img, divisions):
+    # Divide an image into 'divisions' number of patches
     h, w = img.shape
     patches = []
 
@@ -134,6 +135,25 @@ def divide_image(img, divisions):
             i += h_step
 
     assert len(patches) == divisions
+    return patches
+
+def img_to_patches(img, patch_size):
+    # patch_size in (i, j) notation
+    # this method removes borders
+    assert len(patch_size) == 2
+    height, width = img.shape
+    p_height, p_width = patch_size
+    patches = []
+    
+    last_height = 0
+    for i in range(p_height, height, p_height):
+        last_width = 0
+        for j in range(p_width, width, p_width):
+            patch = img[last_height:i, last_width:j]
+            if patch.shape == patch_size :
+                patches.append(patch)
+            last_width = j
+        last_height = i
     return patches
 
 # Método para contar componentes conexas

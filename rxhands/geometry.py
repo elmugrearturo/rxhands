@@ -11,6 +11,36 @@ from rxhands.segmentation import four_region_segmentation
 
 import skimage
 
+
+def rotate_img(img, angle, rotation_point=None):
+    # rotation_point (i, j)
+    height, width = img.shape
+    if rotation_point != None:
+        assert len(rotation_point) == 2
+    else:
+        rotation_point = (int(height/2), int(width/2)) # (i,j)
+    rotation_matrix = cv2.getRotationMatrix2D(rotation_point[::-1], angle, 1.0)
+    rotated_img = cv2.warpAffine(img, rotation_matrix, (width, height))
+    return rotated_img
+
+def centroid(points):
+    new_i = 0
+    new_j = 0
+    for k in range(len(points)):
+        point = points[k]
+        new_i += point[0]
+        new_j += point[1]
+    new_i /= len(points)
+    new_j /= len(points)
+    return (int(new_i), int(new_j))
+
+
+def middle_point(point_one, point_two):
+    new_i = int((point_one[0] + point_two[0]) / 2.)
+    new_j = int((point_one[1] + point_two[1]) / 2.)
+    return (new_i, new_j)
+
+
 def skeletonize(one_component_img, skeleton_value=127):
     #
     # SKELETONIZE IN LOCAL OTSU ONE COMPONENT

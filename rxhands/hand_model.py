@@ -1,12 +1,17 @@
 
 from rxhands.geometry import *
+from rxhands.ridge import normalized_ridge_img, sobelx_ridge_img
 from random import randint
+
 
 class Region(object):
 
-    def __init__(self, bounding_box, area, center, *args, **kwargs):
+    def __init__(self, bounding_box, area, center, bin_img=None, *args, **kwargs):
         assert isinstance(bounding_box, tuple)
         assert isinstance(center, tuple)
+        self.bin_img = bin_img
+        self.positions = find_positions(bin_img)
+        self.positions.sort()
         self.bounding_box = bounding_box
         self.width = self.bounding_box[2]
         self.height = self.bounding_box[3]
@@ -35,6 +40,29 @@ class Region(object):
         self.angle_rad = np.arcsin(self.height / c)
         self.angle = np.degrees(self.angle_rad)
 
+        # Get inclination direction
+        higher_point = self.positions[0]
+        lower_point = self.positions[-1]
+        if higher_point[1] == lower_point[1]:
+            # No inclination (90deg)
+            self.inclination = 0
+        elif higher_point[1] < lower_point[1]:
+            # More than 90deg
+            self.inclination = -1
+        else:
+            # Less than 90deg
+            self.inclination = 1
+
+        self.predicted = []
+
+    def get_predicted(self):
+        all_predicted = []
+        for i in range(len(self.predicted)):
+            prediction = self.predicted[i]
+            if prediction == 1:
+                all_predicted.append(self.positions[i])
+        return all_predicted
+
     def paint_region(self, color_img):
         color = [randint(0, 255), randint(0, 255), randint(0, 255)]
         color_img = cv2.rectangle(color_img, 
@@ -56,8 +84,12 @@ class Region(object):
                                 1,
                                 color,
                                 4)
-        return color_img
 
+        if len(self.predicted) > 0:
+            for i in range(len(self.positions)):
+                if self.predicted[i] == 1:
+                    color_img = cv2.circle(color_img, self.positions[i][::-1], 2, (0, 0, 255), -1)
+        return color_img
 
 
 class Thumb(Region):
@@ -84,7 +116,7 @@ class Finger(Region):
                                 [255, 255, 255],
                                 4)
         return super(Finger, self).paint_region(color_img)
-
+    
 
 class Knuckles(Region):
     
@@ -112,13 +144,23 @@ class Knuckles(Region):
                    [255, 0, 0], 5)
         return color_img
 
+
 class Hand(object):
     
-    def __init__(self, raw_img, segmented_img, *args, **kwargs):
+    def __init__(self, raw_img, processing_img, segmented_img, *args, **kwargs):
         '''segmented_img has to have only one connected component''' 
         
         self.raw_img = raw_img
+        self.processing_img = processing_img
         self.segmented_img = segmented_img
+
+        #
+        # RIDGE IMG (for classifier)
+        #
+        print(f"\t\tCalculating ridge img...")
+        self.classifier_img = sobelx_ridge_img(processing_img)
+        self.classifier_right_img = sobelx_ridge_img(rotate_img(processing_img, -30))
+        self.classifier_left_img = sobelx_ridge_img(rotate_img(processing_img, 30))
 
         #
         # SKELETONIZE
@@ -210,7 +252,8 @@ class Hand(object):
             centroid = (int(centroid[1]), int(centroid[0]))
             thumb = Thumb(bounding_box,
                           area,
-                          centroid)
+                          centroid,
+                          (labeling == label).astype("uint8"))
 
         # Identify possible fingers
         # Avoid zero
@@ -225,7 +268,8 @@ class Hand(object):
                 centroid = (int(centroid[1]), int(centroid[0]))
                 fingers.append(Finger(bounding_box,
                                       area,
-                                      centroid))
+                                      centroid,
+                                      (labeling == label).astype("uint8")))
         return thumb, fingers 
 
     def find_thumb_cut_point(self, bin_img, skel_positions):
@@ -254,4 +298,31 @@ class Hand(object):
             selected = np.argmin(distances)
             skeleton_point = relevant_skeleton_points[selected]
         return optimal_point, skeleton_point
+
+    def classify_points(self, clf):
+        # 
+        # FIND FINGER POINTS IN RIDGE IMAGE
+        #
+        i = 0
+        for finger in self.fingers:
+            i += 1
+            if finger.angle >= 75:
+                # Almost straight finger
+                print(f"\t\t Finger {i} (straight):")
+                
+                print(f"\t\t\tFinding skeleton positions in classifier img...")
+                skel_patches = patches_from_positions(self.classifier_img,
+                                                      finger.positions,
+                                                      (51, 51),
+                                                      0)
+
+                # CLASSIFY
+                print(f"\t\t\tClassifiying patches...")
+                X = np.array([patch.flatten() for patch in skel_patches])
+                y_pred = clf.predict(X)
+                finger.predicted = y_pred
+
+            else:
+                print(f"\t\t Finger {i} (inclination):")
+                pass
 

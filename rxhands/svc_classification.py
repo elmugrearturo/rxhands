@@ -86,7 +86,7 @@ def build_training_set(img_folder, point_file_path, no_images, patch_size):
     return np.array(dataset), np.array(y), selected
 
 
-def create_classifier(img_folder="./data/", point_file_path="./data/points/T2.TPS", no_images=20, patch_size=(51, 51)):
+def create_classifier(img_folder="./data/", point_file_path="./data/points/T2.TPS", no_images=20, patch_size=(51, 51), train_with_all=False):
     # Load dataset
     dataset, y, selected = build_training_set(img_folder,
                                               point_file_path,
@@ -96,18 +96,25 @@ def create_classifier(img_folder="./data/", point_file_path="./data/points/T2.TP
     print("\nFlattening dataset...")
     X = np.array([img.flatten() for img in dataset])
     
-    # Use 50% to train
-    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=.5,
-                                                        random_state=0,
-                                                        stratify=y)
+    if not train_with_all:
+        # Use 50% to train
+        X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=.5,
+                                                            random_state=0,
+                                                            stratify=y)
+    else:
+        X_train = X
+        y_train = y
+
     clf = SVC()
     clf.fit(X_train, y_train)
-    y_pred = clf.predict(X_test)
 
-    print(
-            f"Classification report for classifier {clf}:\n"
-            f"{classification_report(y_test, y_pred)}\n"
-            )
+    if not train_with_all:
+        y_pred = clf.predict(X_test)
+
+        print(
+                f"Classification report for classifier {clf}:\n"
+                f"{classification_report(y_test, y_pred)}\n"
+                )
 
     return clf, selected
 

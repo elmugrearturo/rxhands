@@ -8,7 +8,8 @@ import skimage
 from rxhands.auxiliary import *
 from rxhands.hand_model import Hand
 from rxhands.preprocessing import preprocess_image
-from rxhands.ridge import normalized_ridge_img, sobelx_ridge_img
+#from rxhands.ridge import normalized_ridge_img, sobelx_ridge_img
+from rxhands.clustering import dbscan_clustering, kmeans_clustering
 from rxhands.segmentation import four_region_segmentation
 from rxhands.superpixels import skeletonize, slic_superpixels
 from rxhands.svc_classification import create_classifier
@@ -21,7 +22,7 @@ def main(data_folder="./data/", results_folder="./results/", binary_folder="./bi
         with open(binary_folder + "selected_img_names.bin", "rb") as fp:
             selected_img_names = pickle.load(fp)
     except:
-        clf, selected_img_names = create_classifier()
+        clf, selected_img_names = create_classifier(train_with_all=True)
         with open(binary_folder + "clf.bin", "wb") as fp:
             pickle.dump(clf, fp)
         with open(binary_folder + "selected_img_names.bin", "wb") as fp:
@@ -33,8 +34,12 @@ def main(data_folder="./data/", results_folder="./results/", binary_folder="./bi
         if fname.endswith(".png") or fname.endswith(".tiff") :
             raw_img = load_gray_img(data_folder + fname)
             img = preprocess_image(raw_img)
+            #img_patches = img_to_patches(img, (51, 51))
+            #for i in range(len(img_patches)):
+            #    save_img(img_patches[i], results_folder + f"patches/{i}_" + fname)
+            #import ipdb;ipdb.set_trace()
             color_img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR) 
-            ridge_img = sobelx_ridge_img(img)
+            #ridge_img = sobelx_ridge_img(img)
             try:
                 one_component_img = four_region_segmentation(img)
             except Exception as e:
@@ -50,37 +55,33 @@ def main(data_folder="./data/", results_folder="./results/", binary_folder="./bi
             # Fingers are found from the partially segmented
             # image and the morphological skeleton
             print(f"\tFitting partial hand model...")
-            partial_hand_model = Hand(raw_img, one_component_img)
+            partial_hand_model = Hand(raw_img, img, one_component_img)
+            
+            ## 
+            ## CLASSIFY
+            ##
+            partial_hand_model.classify_points(clf)
+            
+            ## 
+            ## DISPLAY
+            ##
+            
             print(f"\t\tMarking regions in raw_img...")
             marked_img = partial_hand_model.paint_to_img(raw_img)
+            
+            for finger in partial_hand_model.fingers:
+                predicted = finger.get_predicted()
+                if len(predicted) != 0:
+                    #clusters = dbscan_clustering(predicted)
+                    try:
+                        clusters = kmeans_clustering(predicted)
+                    except:
+                        continue
+                    for label in clusters:
+                        marked_img = cv2.circle(marked_img, clusters[label][::-1], 2, (0, 255, 0), -1)
+
             save_img(marked_img, results_folder + "hand_model/" + fname)
-            continue
             
-            if fname in selected_img_names:
-                continue
-
-            ## 
-            ## FIND SKELETON POINTS IN RIDGE IMAGE
-            ##
-            #print(f"\tFinding skeleton positions in classifier img...")
-            #skel_patches = patches_from_positions(ridge_img, 
-            #                                      skel_positions,
-            #                                      (51, 51),
-            #                                      0)
-
-            ## CLASSIFY
-            #print(f"\tClassifiying patches...")
-            #X = np.array([patch.flatten() for patch in skel_patches])
-            #y_pred = clf.predict(X)
-
-            #for i in range(len(skel_positions)):
-            #    if y_pred[i] == 1:
-            #        color_img = cv2.circle(color_img, skel_positions[i][::-1], 2, (0, 0, 255), -1)
-            ##        show_img(skel_patches[i], "Skel patch")
-            ##show_img(color_img, "Candidates")
-            #save_img(color_img, results_folder + "svc_classifier/" + fname)
-            
-            #import ipdb;ipdb.set_trace()
         #break
 
 if __name__ == "__main__" :
