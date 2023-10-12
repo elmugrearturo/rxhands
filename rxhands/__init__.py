@@ -69,6 +69,7 @@ def main(data_folder="./data/", results_folder="./results/", binary_folder="./bi
             
             hand_dict = partial_hand_model.to_dictionary()
             dataset_dict[fname] = hand_dict
+            continue
             ## 
             ## DISPLAY
             ##
@@ -81,8 +82,8 @@ def main(data_folder="./data/", results_folder="./results/", binary_folder="./bi
             save_img(marked_points, results_folder + "poi/" + fname)
             
         #break
-        df = pd.DataFrame(hand_dict).T
-        df.to_csv(results_folder + "datapoints.csv", sep=",", index=True)
+    df = pd.DataFrame(dataset_dict).T
+    df.to_csv(results_folder + "datapoints.csv", sep=",", index=True)
 
 if __name__ == "__main__" :
     main()
