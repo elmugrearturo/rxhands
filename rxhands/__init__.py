@@ -1,6 +1,7 @@
 import os
 import cv2
 import numpy as np
+import pandas as pd
 import pickle
 
 import skimage
@@ -29,6 +30,7 @@ def main(data_folder="./data/", results_folder="./results/", binary_folder="./bi
 
     kernel = np.ones((5,5), np.uint8)
     eight_neighbors = np.ones((3, 3), np.uint8)
+    dataset_dict = {}
     for fname in os.listdir(data_folder) :
         if fname.endswith(".png") or fname.endswith(".tiff") :
             raw_img = load_gray_img(data_folder + fname)
@@ -61,6 +63,12 @@ def main(data_folder="./data/", results_folder="./results/", binary_folder="./bi
             ##
             partial_hand_model.find_points_in_finger(clf, "kmeans")
             
+            ##
+            ## SAVE POINTS
+            ##
+            
+            hand_dict = partial_hand_model.to_dictionary()
+            dataset_dict[fname] = hand_dict
             ## 
             ## DISPLAY
             ##
@@ -73,6 +81,8 @@ def main(data_folder="./data/", results_folder="./results/", binary_folder="./bi
             save_img(marked_points, results_folder + "poi/" + fname)
             
         #break
+        df = pd.DataFrame(hand_dict).T
+        df.to_csv(results_folder + "datapoints.csv", sep=",", index=True)
 
 if __name__ == "__main__" :
     main()
