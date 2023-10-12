@@ -56,6 +56,41 @@ class Region(object):
 
         self.predictions = []
 
+    # Comparison on the horizontal axis
+    def __gt__(self, b):
+        if self.center[1] > b.center[1]:
+            return True
+        return False
+
+    def __ge__(self, b):
+        if self.center[1] >= b.center[1]:
+            return True
+        return False
+    
+    def __lt__(self, b):
+        if self.center[1] < b.center[1]:
+            return True
+        return False
+
+    def __le__(self, b):
+        if self.center[1] <= b.center[1]:
+            return True
+        return False
+
+    def __eq__(self, b):
+        if b == None:
+            return False
+        if self.center[1] == b.center[1]:
+            return True
+        return False
+    
+    def __ne__(self, b):
+        if b == None:
+            return True
+        if self.center[1] != b.center[1]:
+            return True
+        return False
+
     def get_predicted(self):
         all_predicted = []
         for i in range(len(self.predictions)):
@@ -66,10 +101,19 @@ class Region(object):
     
     def approximate_prediction_points(self, clustering_algorithm="kmeans"):
         predicted = self.get_predicted()
+        no_of_points = 2
+        # Check if two or three points
+        if self.finger_id == Finger.INDEX or self.finger_id == Finger.LITTLE:
+            if self.predictions[-1] or \
+                    self.predictions[-2] or \
+                    self.predictions[-3] or \
+                    self.predictions[-4]:
+                        no_of_points = 3
+
         if len(predicted) != 0:
             try:
                 if clustering_algorithm == "kmeans":
-                    return kmeans_clustering(predicted)
+                    return kmeans_clustering(predicted, no_of_points)
                 elif clustering_algorithm == "dbscan":
                     return dbscan_clustering(predicted)
             except Exception as e:
@@ -119,10 +163,44 @@ class Thumb(Region):
 
 
 class Finger(Region):
-    
+
+    UNKNOWN = 0
+    INDEX = 1
+    MIDDLE = 2
+    RING = 3
+    LITTLE = 4
+
+    def __init__(self, bounding_box, area, center, bin_img=None, *args, **kwargs):
+        super(Finger, self).__init__(bounding_box, area, center, bin_img)
+        self.finger_id = self.UNKNOWN
+        self.distal_limit = None # Point
+        self.distal_interphalangeal = None # First joint after Point
+        self.proximal_interphalangeal = None # Second joint after Point
+        self.metacarpophalangeal = None
+        self.middle_phalanx_length = None # Distance between joints
+        self.proximal_phalanx_length = None
+
+    def set_finger_id(self, new_id):
+        if new_id not in \
+                [self.UNKNOWN, self.INDEX, self.MIDDLE, self.RING, self.LITTLE]:
+                    raise ValueError("Unknown finger value")
+        self.finger_id = new_id
+
     def paint_region(self, color_img):
+        if self.finger_id == Finger.UNKNOWN:
+            label = "F"
+        elif self.finger_id == Finger.LITTLE:
+            label = "L"
+        elif self.finger_id == Finger.RING:
+            label = "R"
+        elif self.finger_id == Finger.MIDDLE:
+            label = "M"
+        elif self.finger_id == Finger.INDEX:
+            label = "I"
+        else:
+            return color_img
         color_img = cv2.putText(color_img, 
-                                "F",
+                                label,
                                 self.center[::-1],
                                 cv2.FONT_HERSHEY_SIMPLEX,
                                 1,
@@ -217,6 +295,11 @@ class Hand(object):
         # 
         self.thumb, self.fingers = self.find_possible_fingers()
 
+        #
+        # LABEL FINGERS
+        #
+        self.label_fingers()
+
     def paint_to_img(self, img):
         new_img = img.copy()
         # Paint prunned skeleton
@@ -230,6 +313,114 @@ class Hand(object):
         for finger in self.fingers:
             color_img = finger.paint_region(color_img)
         return color_img
+
+    def paint_poi_to_img(self, img):
+        new_img = img.copy()
+        # Create color img
+        color_img = cv2.cvtColor(new_img, cv2.COLOR_GRAY2BGR) 
+
+        # Paint knuckles center
+        color_img = cv2.circle(color_img, self.knuckles.center[::-1], 2, (255, 0, 0), -1)
+        for finger in self.fingers:
+            if finger.distal_limit != None :
+                color_img = cv2.circle(color_img, finger.distal_limit[::-1], 5, (0, 0, 255), -1)
+            if finger.distal_interphalangeal != None:
+                color_img = cv2.circle(color_img, finger.distal_interphalangeal[::-1], 5, (0, 0, 255), -1)
+            if finger.proximal_interphalangeal != None:
+                color_img = cv2.circle(color_img, finger.proximal_interphalangeal[::-1], 5, (0, 0, 255), -1)
+            if finger.metacarpophalangeal != None:
+                color_img = cv2.circle(color_img, finger.metacarpophalangeal[::-1], 5, (0, 0, 255), -1)
+        return color_img
+
+    def label_fingers(self):
+        self.fingers.sort()
+        finger_labels = [0 for _ in range(len(self.fingers))]
+        if len(self.fingers) == 4:
+            # Found 4, assume they are correct
+            finger_labels[0] = Finger.LITTLE
+            finger_labels[1] = Finger.RING
+            finger_labels[2] = Finger.MIDDLE
+            finger_labels[3] = Finger.INDEX
+        elif len(self.fingers) == 3:
+            if self.fingers[-1] > self.knuckles:
+                if self.fingers[-2] >= self.knuckles:
+                    # Two last fingers right of center, then
+                    # they must be index and middle
+                    finger_labels[-1] = Finger.INDEX
+                    finger_labels[-2] = Finger.MIDDLE
+                    # Guess third based on angle
+                    if self.fingers[-3].angle < 70:
+                        finger_labels[-3] = Finger.LITTLE
+                    else:
+                        finger_labels[-3] = Finger.RING
+                else:
+                    # Just one finger right of center
+                    # Could be either index or middle
+                    # Decide with angle
+                    if self.fingers[-1].angle >= 85:
+                        finger_labels[-1] = Finger.MIDDLE
+                        finger_labels[-2] = Finger.RING
+                    else:
+                        finger_labels[-1] = Finger.INDEX
+                        if self.fingers[-2].angle >= 85:
+                            finger_labels[-2] = Finger.MIDDLE
+                        else:
+                            finger_labels[-2] = Finger.RING
+                    finger_labels[-3] = Finger.LITTLE
+            else:
+                # Three fingers left of center, assume 
+                # little, ring, middle
+                finger_labels[0] = Finger.LITTLE
+                finger_labels[1] = Finger.RING
+                finger_labels[2] = Finger.MIDDLE
+        elif len(self.fingers) == 2:
+            if self.fingers[-1] > self.knuckles:
+                if self.fingers[-2] >= self.knuckles:
+                    # Two fingers right of center, then
+                    # they must be index and middle
+                    finger_labels[-1] = Finger.INDEX
+                    finger_labels[-2] = Finger.MIDDLE
+                else:
+                    # Only one finger to the right, 
+                    # guess everything based on angle
+                    if self.fingers[-1].angle > 85:
+                        finger_labels[-1] = Finger.MIDDLE
+                    else:
+                        finger_labels[-1] = Finger.INDEX
+
+                    if self.fingers[-2].angle < 70:
+                        finger_labels[-2] = Finger.LITTLE
+                    else:
+                        finger_labels[-2] = Finger.RING
+            else:
+                # Two fingers left of center, one can be middle
+                if self.fingers[-1].angle > 85:
+                    finger_labels[-1] = Finger.MIDDLE
+                    if self.fingers[-2].angle < 70:
+                        finger_labels[-2] = Finger.LITTLE
+                    else:
+                        finger_labels[-2] = Finger.RING
+                else:
+                    finger_labels[-1] = Finger.RING
+                    finger_labels[-2] = Finger.LITTLE
+        elif len(self.fingers) == 1 :
+            if self.fingers[0] >= self.knuckles:
+                # Can be middle or index
+                if self.fingers[0].angle > 85:
+                    finger_labels[0] = Finger.MIDDLE
+                else:
+                    finger_labels[0] = Finger.INDEX
+            else:
+                # Can be middle, ring or little
+                if self.fingers[0].angle < 70:
+                    finger_labels[0] = Finger.LITTLE
+                elif self.fingers[0].angle <= 85:
+                    finger_labels[0] = Finger.RING
+                else:
+                    finger_labels[0] = Finger.MIDDLE
+
+        for i in range(len(finger_labels)):
+            self.fingers[i].set_finger_id(finger_labels[i])
 
     def find_possible_fingers(self):
         # Separate skeleton
@@ -312,6 +503,60 @@ class Hand(object):
             selected = np.argmin(distances)
             skeleton_point = relevant_skeleton_points[selected]
         return optimal_point, skeleton_point
+
+    def find_points_in_finger(self, clf, clustering_algorithm="kmeans"):
+        self.classify_internal_finger_points(clf)
+
+        print("\t Calculating points of interest in fingers...")
+        for finger in self.fingers:
+            clusters = finger.approximate_prediction_points(clustering_algorithm)
+            points = [clusters[k] for k in clusters.keys()]
+            if len(points) != 2 and len(points) != 3:
+                continue
+            points.sort()
+            
+            finger.distal_interphalangeal = points[0]
+            finger.proximal_interphalangeal = points[1]
+            finger.middle_phalanx_length = euclidean_distance(points[0], points[1])
+            if len(points) == 3:
+                finger.metacarpophalangeal = points[2]
+                finger.proximal_phalanx_length = euclidean_distance(points[1], points[2])
+            ## Find finger Point
+            ## From distal_interphalangeal
+            #search_kernel = np.zeros(9)
+
+            ## Search only in 0, 1, 2, 3 and 5
+            #search_directions = [0, 1, 2, 3, 5]
+            #distances = position_to_border_distances(
+            #        self.segmented_img,
+            #        finger.distal_interphalangeal,
+            #        search_directions)
+
+            #for i in range(len(distances)):
+            #    if distances[i] == -1:
+            #        continue
+            #    if distances[i] > finger.middle_phalanx_length:
+            #        distances[i] = -1
+            #        
+            #farthest_direction = np.argmax(distances)
+            #if farthest_direction == 0:
+            #    farthest_point = (finger.distal_interphalangeal[0] - distances[farthest_direction],
+            #                      finger.distal_interphalangeal[1] - distances[farthest_direction])
+            #elif farthest_direction == 1:
+            #    farthest_point = (finger.distal_interphalangeal[0] - distances[farthest_direction],
+            #                      finger.distal_interphalangeal[1])
+            #elif farthest_direction == 2:
+            #    farthest_point = (finger.distal_interphalangeal[0] - distances[farthest_direction],
+            #                      finger.distal_interphalangeal[1] + distances[farthest_direction])
+            #elif farthest_direction == 3:
+            #    farthest_point = (finger.distal_interphalangeal[0],
+            #                      finger.distal_interphalangeal[1] - distances[farthest_direction])
+            #elif farthest_direction == 5:
+            #    farthest_point = (finger.distal_interphalangeal[0],
+            #                      finger.distal_interphalangeal[1] + distances[farthest_direction])
+            #else:
+            #    farthest_point = None
+            #finger.distal_limit = farthest_point
 
     def classify_internal_finger_points(self, clf):
         # 

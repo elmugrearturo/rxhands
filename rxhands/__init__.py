@@ -59,7 +59,7 @@ def main(data_folder="./data/", results_folder="./results/", binary_folder="./bi
             ## 
             ## CLASSIFY
             ##
-            partial_hand_model.classify_internal_finger_points(clf)
+            partial_hand_model.find_points_in_finger(clf, "kmeans")
             
             ## 
             ## DISPLAY
@@ -67,13 +67,10 @@ def main(data_folder="./data/", results_folder="./results/", binary_folder="./bi
             
             print(f"\t\tMarking regions in raw_img...")
             marked_img = partial_hand_model.paint_to_img(raw_img)
-            
-            for finger in partial_hand_model.fingers:
-                clusters = finger.approximate_prediction_points("kmeans")
-                for label in clusters:
-                    marked_img = cv2.circle(marked_img, clusters[label][::-1], 2, (0, 255, 0), -1)
+            marked_points = partial_hand_model.paint_poi_to_img(raw_img)
 
             save_img(marked_img, results_folder + "hand_model/" + fname)
+            save_img(marked_points, results_folder + "poi/" + fname)
             
         #break
 
