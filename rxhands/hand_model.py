@@ -534,42 +534,78 @@ class Hand(object):
             if len(points) == 3:
                 finger.metacarpophalangeal = points[2]
                 finger.proximal_phalanx_length = euclidean_distance(points[1], points[2])
+            
             ## Find finger tip
             ## From distal_interphalangeal
-            #search_kernel = np.zeros(9)
+            slope_i = finger.distal_interphalangeal[0] - finger.proximal_interphalangeal[0]
+            slope_j = finger.distal_interphalangeal[1] - finger.proximal_interphalangeal[1]
+            vertical_line = False
+            if slope_i == 0:
+                # Horizontal line
+                # Something is wrong
+                continue
 
-            ## Search only in 0, 1, 2, 3 and 5
-            #search_directions = [0, 1, 2, 3, 5]
-            #distances = position_to_border_distances(
-            #        self.segmented_img,
-            #        finger.distal_interphalangeal,
-            #        search_directions)
+            if slope_j == 0:
+                # Vertical line
+                vertical_line = True
+                forever_j = finger.distal_interphalangeal[1]
+            else:
+                slope = slope_i / slope_j
+                b = finger.distal_interphalangeal[0] - (slope*finger.distal_interphalangeal[1])
+            initial_i = finger.distal_interphalangeal[0]
+            visited = []
+            border_found = False
+            for k in range(1, int(finger.middle_phalanx_length)):
+                # Formula (i-b)/m = j
+                new_i = int(initial_i - k)
+                if not vertical_line :
+                    new_j = int((new_i - b) / slope)
+                else:
+                    new_j = forever_j
+                visited.append((new_i, new_j))
+                if self.segmented_img[(new_i, new_j)] == 0:
+                    border_found = True
+                    break
+            
+            if border_found :
+                # Search tip
+                center_i, center_j = visited[-1]
+                patch = cut_patch(self.raw_img, visited[-1], (99, 99))
+                thresholds = skimage.filters.threshold_multiotsu(patch)
+                patch = (patch >= thresholds[1]).astype("uint8") * 255
+                patch_j = 49
+                for patch_i in range(99):
+                    filled, gaps = check_gaps_per_row(patch, [patch_i])
+                    if len(filled[0]) > 0:
+                        init_interval, end_interval = filled[0][0]
+                        if init_interval[1] == end_interval[1]:
+                            patch_j = init_interval[1]
+                        else:
+                            patch_j = init_interval[1] + (end_interval[1] - init_interval[1]) / 2
+                            patch_j = int(patch_j)
+                        #print(patch_i)
+                        #show_img(patch, "parche")
+                        break
 
-            #for i in range(len(distances)):
-            #    if distances[i] == -1:
-            #        continue
-            #    if distances[i] > finger.middle_phalanx_length:
-            #        distances[i] = -1
-            #        
-            #farthest_direction = np.argmax(distances)
-            #if farthest_direction == 0:
-            #    farthest_point = (finger.distal_interphalangeal[0] - distances[farthest_direction],
-            #                      finger.distal_interphalangeal[1] - distances[farthest_direction])
-            #elif farthest_direction == 1:
-            #    farthest_point = (finger.distal_interphalangeal[0] - distances[farthest_direction],
-            #                      finger.distal_interphalangeal[1])
-            #elif farthest_direction == 2:
-            #    farthest_point = (finger.distal_interphalangeal[0] - distances[farthest_direction],
-            #                      finger.distal_interphalangeal[1] + distances[farthest_direction])
-            #elif farthest_direction == 3:
-            #    farthest_point = (finger.distal_interphalangeal[0],
-            #                      finger.distal_interphalangeal[1] - distances[farthest_direction])
-            #elif farthest_direction == 5:
-            #    farthest_point = (finger.distal_interphalangeal[0],
-            #                      finger.distal_interphalangeal[1] + distances[farthest_direction])
-            #else:
-            #    farthest_point = None
-            #finger.distal_tip = farthest_point
+                if patch_i < 49:
+                    # Final i is a substraction
+                    final_i = center_i - (49 - patch_i)
+                elif patch_i > 49:
+                    # Final i is an addition
+                    final_i = center_i + (patch_i - 49)
+                else:
+                    final_i = center_i
+                
+                if patch_j < 49:
+                    # Final i is a substraction
+                    final_j = center_j - (49 - patch_j)
+                elif patch_i > 49:
+                    # Final i is an addition
+                    final_j = center_j + (patch_j - 49)
+                else:
+                    final_j = center_j
+                
+                finger.distal_tip = (final_i, final_j)
 
     def classify_internal_finger_points(self, clf):
         # 
@@ -615,33 +651,36 @@ class Hand(object):
             y_pred = clf.predict(X)
             finger.predictions = y_pred
 
+            self.classifier_img.shape
+
     def to_dictionary(self):
         # Only fingers (x, y)
         df = {}
+        height, width = self.classifier_img.shape
         for finger in self.fingers:
             if finger.finger_id == Finger.INDEX:
                 # tip 5, joint points 6,7,8
                 if finger.distal_tip != None:
                     df['5_X'] = finger.distal_tip[1]
-                    df['5_Y'] = finger.distal_tip[0]
+                    df['5_Y'] = height - finger.distal_tip[0]
                 else:
                     df['5_X'] = None
                     df['5_Y'] = None
                 if finger.distal_interphalangeal != None:
                     df['6_X'] = finger.distal_interphalangeal[1]
-                    df['6_Y'] = finger.distal_interphalangeal[0]
+                    df['6_Y'] = height - finger.distal_interphalangeal[0]
                 else:
                     df['6_X'] = None
                     df['6_Y'] = None
                 if finger.proximal_interphalangeal != None:
                     df['7_X'] = finger.proximal_interphalangeal[1]
-                    df['7_Y'] = finger.proximal_interphalangeal[0]
+                    df['7_Y'] = height - finger.proximal_interphalangeal[0]
                 else:
                     df['7_X'] = None
                     df['7_Y'] = None
                 if finger.metacarpophalangeal != None:
                     df['8_X'] = finger.metacarpophalangeal[1]
-                    df['8_Y'] = finger.metacarpophalangeal[0]
+                    df['8_Y'] = height - finger.metacarpophalangeal[0]
                 else:
                     df['8_X'] = None
                     df['8_Y'] = None
@@ -649,25 +688,25 @@ class Hand(object):
                 # tip 10, points 11,12,13
                 if finger.distal_tip != None:
                     df['10_X'] = finger.distal_tip[1]
-                    df['10_Y'] = finger.distal_tip[0]
+                    df['10_Y'] = height - finger.distal_tip[0]
                 else:
                     df['10_X'] = None
                     df['10_Y'] = None
                 if finger.distal_interphalangeal != None:
                     df['11_X'] = finger.distal_interphalangeal[1]
-                    df['11_Y'] = finger.distal_interphalangeal[0]
+                    df['11_Y'] = height - finger.distal_interphalangeal[0]
                 else:
                     df['11_X'] = None
                     df['11_Y'] = None
                 if finger.proximal_interphalangeal != None:
                     df['12_X'] = finger.proximal_interphalangeal[1]
-                    df['12_Y'] = finger.proximal_interphalangeal[0]
+                    df['12_Y'] = height - finger.proximal_interphalangeal[0]
                 else:
                     df['12_X'] = None
                     df['12_Y'] = None
                 if finger.metacarpophalangeal != None:
                     df['13_X'] = finger.metacarpophalangeal[1]
-                    df['13_Y'] = finger.metacarpophalangeal[0]
+                    df['13_Y'] = height - finger.metacarpophalangeal[0]
                 else:
                     df['13_X'] = None
                     df['13_Y'] = None
@@ -675,25 +714,25 @@ class Hand(object):
                 # tip 15, points 16,17,18
                 if finger.distal_tip != None:
                     df['15_X'] = finger.distal_tip[1]
-                    df['15_Y'] = finger.distal_tip[0]
+                    df['15_Y'] = height - finger.distal_tip[0]
                 else:
                     df['15_X'] = None
                     df['15_Y'] = None
                 if finger.distal_interphalangeal != None:
                     df['16_X'] = finger.distal_interphalangeal[1]
-                    df['16_Y'] = finger.distal_interphalangeal[0]
+                    df['16_Y'] = height - finger.distal_interphalangeal[0]
                 else:
                     df['16_X'] = None
                     df['16_Y'] = None
                 if finger.proximal_interphalangeal != None:
                     df['17_X'] = finger.proximal_interphalangeal[1]
-                    df['17_Y'] = finger.proximal_interphalangeal[0]
+                    df['17_Y'] = height - finger.proximal_interphalangeal[0]
                 else:
                     df['17_X'] = None
                     df['17_Y'] = None
                 if finger.metacarpophalangeal != None:
                     df['18_X'] = finger.metacarpophalangeal[1]
-                    df['18_Y'] = finger.metacarpophalangeal[0]
+                    df['18_Y'] = height - finger.metacarpophalangeal[0]
                 else:
                     df['18_X'] = None
                     df['18_Y'] = None
@@ -701,25 +740,25 @@ class Hand(object):
                 # tip 20, points 21,22,23
                 if finger.distal_tip != None:
                     df['20_X'] = finger.distal_tip[1]
-                    df['20_Y'] = finger.distal_tip[0]
+                    df['20_Y'] = height - finger.distal_tip[0]
                 else:
                     df['20_X'] = None
                     df['20_Y'] = None
                 if finger.distal_interphalangeal != None:
                     df['21_X'] = finger.distal_interphalangeal[1]
-                    df['21_Y'] = finger.distal_interphalangeal[0]
+                    df['21_Y'] = height - finger.distal_interphalangeal[0]
                 else:
                     df['21_X'] = None
                     df['21_Y'] = None
                 if finger.proximal_interphalangeal != None:
                     df['22_X'] = finger.proximal_interphalangeal[1]
-                    df['22_Y'] = finger.proximal_interphalangeal[0]
+                    df['22_Y'] = height - finger.proximal_interphalangeal[0]
                 else:
                     df['22_X'] = None
                     df['22_Y'] = None
                 if finger.metacarpophalangeal != None:
                     df['23_X'] = finger.metacarpophalangeal[1]
-                    df['23_Y'] = finger.metacarpophalangeal[0]
+                    df['23_Y'] = height - finger.metacarpophalangeal[0]
                 else:
                     df['23_X'] = None
                     df['23_Y'] = None

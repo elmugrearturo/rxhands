@@ -69,7 +69,7 @@ def main(data_folder="./data/", results_folder="./results/", binary_folder="./bi
             
             hand_dict = partial_hand_model.to_dictionary()
             dataset_dict[fname] = hand_dict
-            continue
+            
             ## 
             ## DISPLAY
             ##
