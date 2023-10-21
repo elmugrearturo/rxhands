@@ -31,9 +31,12 @@ def main(data_folder="./data/", results_folder="./results/", binary_folder="./bi
     data_folder = os.path.join(data_folder, dataset)
     results_folder = os.path.join(results_folder, dataset)
     
-    # Create folder structure
-    os.makedirs(os.path.join(results_folder, "hand_model/"))
-    os.makedirs(os.path.join(results_folder, "poi/"))
+    try:
+        # Create folder structure
+        os.makedirs(os.path.join(results_folder, "hand_model/"))
+        os.makedirs(os.path.join(results_folder, "poi/"))
+    except:
+        pass
     
     kernel = np.ones((5,5), np.uint8)
     eight_neighbors = np.ones((3, 3), np.uint8)

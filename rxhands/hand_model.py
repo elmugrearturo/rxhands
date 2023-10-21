@@ -563,8 +563,11 @@ class Hand(object):
                 else:
                     new_j = forever_j
                 visited.append((new_i, new_j))
-                if self.segmented_img[(new_i, new_j)] == 0:
-                    border_found = True
+                try:
+                    if self.segmented_img[(new_i, new_j)] == 0:
+                        border_found = True
+                        break
+                except:
                     break
             
             if border_found :
