@@ -14,7 +14,7 @@ from rxhands.segmentation import four_region_segmentation
 from rxhands.superpixels import skeletonize, slic_superpixels
 from rxhands.svc_classification import create_classifier
 
-def main(data_folder="./data/", results_folder="./results/", binary_folder="./bin/"):
+def main(data_folder="./data/", results_folder="./results/", binary_folder="./bin/", dataset="intra_inter"):
     
     try:
         with open(binary_folder + "clf.bin", "rb") as fp:
@@ -28,12 +28,19 @@ def main(data_folder="./data/", results_folder="./results/", binary_folder="./bi
         with open(binary_folder + "selected_img_names.bin", "wb") as fp:
             pickle.dump(selected_img_names, fp)
 
+    data_folder = os.path.join(data_folder, dataset)
+    results_folder = os.path.join(results_folder, dataset)
+    
+    # Create folder structure
+    os.makedirs(os.path.join(results_folder, "hand_model/"))
+    os.makedirs(os.path.join(results_folder, "poi/"))
+    
     kernel = np.ones((5,5), np.uint8)
     eight_neighbors = np.ones((3, 3), np.uint8)
     dataset_dict = {}
     for fname in os.listdir(data_folder) :
-        if fname.endswith(".png") or fname.endswith(".tiff") :
-            raw_img = load_gray_img(data_folder + fname)
+        if fname.endswith(".jpg") or fname.endswith(".png") or fname.endswith(".tiff") :
+            raw_img = load_gray_img(os.path.join(data_folder, fname))
             img = preprocess_image(raw_img)
             #img_patches = img_to_patches(img, (51, 51))
             #for i in range(len(img_patches)):
@@ -77,13 +84,13 @@ def main(data_folder="./data/", results_folder="./results/", binary_folder="./bi
             print(f"\t\tMarking regions in raw_img...")
             marked_img = partial_hand_model.paint_to_img(raw_img)
             marked_points = partial_hand_model.paint_poi_to_img(raw_img)
-
-            save_img(marked_img, results_folder + "hand_model/" + fname)
-            save_img(marked_points, results_folder + "poi/" + fname)
+            
+            save_img(marked_img, os.path.join(results_folder, "hand_model/", fname))
+            save_img(marked_points, os.path.join(results_folder, "poi/",  fname))
             
         #break
     df = pd.DataFrame(dataset_dict).T
     df.to_csv(results_folder + "datapoints.csv", sep=",", index=True)
 
 if __name__ == "__main__" :
-    main()
+    main(dataset="mex_left")
