@@ -10,6 +10,10 @@ def main():
     #current_folder = os.path.dirname(__file__)
     model_path = os.path.join(home_folder, "rxhands_models", "model-heatmap-rxhands-raw.h5")
     if not os.path.exists(model_path):
+        try:
+            os.makedirs(os.path.dirname(model_path))
+        except:
+            pass
         # Download
         print(f"Downloading trained model to {model_path}...")
         urllib.request.urlretrieve("http://www.arturocuriel.com/uploads/model-heatmap-rxhands-raw.h5", 

@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
      name='rxhands-unam-colab',  
-     version='0.19',
+     version='0.20',
      author="Arturo Curiel",
      author_email="me@arturocuriel.com",
      description="Labeling of finger landmarks in hand xrays.",
