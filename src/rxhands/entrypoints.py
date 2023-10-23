@@ -19,6 +19,8 @@ from rxhands.superpixels import skeletonize, slic_superpixels
 from rxhands.svc_classification import create_classifier
 
 binary_folder = os.path.join(os.path.dirname(__file__), "bin/")
+home_folder = os.path.expanduser("~")
+weights_path = os.path.join(home_folder, "rxhands_models", "model-heatmap-rxhands-raw.h5")
 
 # Lookup table for neural algorithm
 lookup_table = { 0 : 3,
@@ -135,8 +137,6 @@ def neural(data_folder,
 
     # Hard coded shape and model name
     shape=(256, 256, 1)
-    weights_path=os.path.join(binary_folder,
-                              "model-heatmap-rxhands-raw.h5")
 
     model = load_multi_mask_model(weights_path, shape, 19)
 

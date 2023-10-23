@@ -6,11 +6,12 @@ import urllib
 from rxhands.entrypoints import symbolic, neural
 
 def main():
-    current_folder = os.path.dirname(__file__)
-    model_path = os.path.join(current_folder, "bin", "model-heatmap-rxhands-raw.h5")
+    home_folder = os.path.expanduser("~")
+    #current_folder = os.path.dirname(__file__)
+    model_path = os.path.join(home_folder, "rxhands_models", "model-heatmap-rxhands-raw.h5")
     if not os.path.exists(model_path):
         # Download
-        print("Downloading...")
+        print(f"Downloading trained model to {model_path}...")
         urllib.request.urlretrieve("http://www.arturocuriel.com/uploads/model-heatmap-rxhands-raw.h5", 
                                    model_path)
         print("Completed")
