@@ -110,5 +110,8 @@ summaries/
 *.bin
 *.bin.gz
 
+# TensorFlow models
+*.h5
+
 # Images
 *.png

@@ -18,6 +18,8 @@ from rxhands.segmentation import four_region_segmentation
 from rxhands.superpixels import skeletonize, slic_superpixels
 from rxhands.svc_classification import create_classifier
 
+binary_folder = os.path.join(os.path.dirname(__file__), "bin/")
+
 # Lookup table for neural algorithm
 lookup_table = { 0 : 3,
                  1 : 2,
@@ -40,7 +42,7 @@ lookup_table = { 0 : 3,
                  18 : 20
                 }
 
-def symbolic(data_folder, results_folder, binary_folder="./bin/"):
+def symbolic(data_folder, results_folder):
     
     try:
         with open(os.path.join(binary_folder, "clf.bin"), "rb") as fp:
@@ -125,9 +127,7 @@ def symbolic(data_folder, results_folder, binary_folder="./bin/"):
 def neural(data_folder,
            results_folder,
            crop_img=False,
-           preprocess_img=False,
-           bin_folder="./bin"):
-    
+           preprocess_img=False): 
     try:
         os.makedirs(results_folder)
     except:
@@ -135,7 +135,7 @@ def neural(data_folder,
 
     # Hard coded shape and model name
     shape=(256, 256, 1)
-    weights_path=os.path.join(bin_folder,
+    weights_path=os.path.join(binary_folder,
                               "model-heatmap-rxhands-raw.h5")
 
     model = load_multi_mask_model(weights_path, shape, 19)
