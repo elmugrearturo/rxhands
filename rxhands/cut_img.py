@@ -6,13 +6,13 @@ from rxhands.auxiliary import *
 from rxhands.preprocessing import preprocess_image
 from rxhands.segmentation import four_region_segmentation
 
-def crop_img(raw_img):
+def crop_image(raw_img):
     img = preprocess_image(raw_img)
     try:
         one_component_img = four_region_segmentation(img)
     except Exception as e:
         print("Couldn't find hand: %s" % fname, " ", e)
-        continue
+        return raw_img
 
     new_raw_img = raw_img * (one_component_img // 255)
     _, _, bboxes, _ = cv2.connectedComponentsWithStats(one_component_img, 8)

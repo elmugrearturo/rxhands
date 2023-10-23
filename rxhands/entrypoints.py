@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import skimage
 
 from rxhands.auxiliary import *
-from rxhands.cut_img import crop_img
+from rxhands.cut_img import crop_image
 from rxhands.multi_mask_model import load_multi_mask_model
 from rxhands.dataset import show_multi_heatmap
 from rxhands.hand_model import Hand
@@ -127,6 +127,11 @@ def neural(data_folder,
            crop_img=False,
            preprocess_img=False,
            bin_folder="./bin"):
+    
+    try:
+        os.makedirs(results_folder)
+    except:
+        pass
 
     # Hard coded shape and model name
     shape=(256, 256, 1)
@@ -147,14 +152,13 @@ def neural(data_folder,
         # Get image
         img = load_gray_img(os.path.join(data_folder,
                                          fname))
-        
-        color_img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
-
         if crop_img:
-            img = crop_img(img)
+            img = crop_image(img)
 
         if preprocess_img:
             img = preprocess_image(img)
+        
+        color_img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
 
         height, width = img.shape
 
