@@ -44,16 +44,38 @@ where:
 ### Examples
 
 ```
+rxhands -al neural -of results/ data/
+```
+
+This command will label landmarks through the neural algorithm.
+
+<img src="https://user-images.githubusercontent.com/47402836/277245833-911236a5-3032-4f6f-aed0-db56ffa7feb2.png" width=35%/>
+
+```
 rxhands -al neural -ch -of results/ data/
 ```
 
 This command will label landmarks through the neural algorithm. The images in folder `data/` will be cropped on input.
+
+<img src="https://user-images.githubusercontent.com/47402836/277244648-29cabe00-9b2b-4f3a-8461-f4a4c23a1e35.png" width=35%/>
+
+```
+rxhands -al neural -ch -pre -of results/ data/
+```
+
+This command will label landmarks through the neural algorithm. The images in folder `data/` will be cropped and preprocessed on input.
+
+<img src="https://user-images.githubusercontent.com/47402836/277246250-ecacd066-4fef-402c-b474-d252137c9811.png" width=35%/>
 
 ```
 rxhands -al symbolic -of results/ data/
 ```
 
 This command will label landmarks through the symbolic algorithm.
+
+<img src="https://user-images.githubusercontent.com/47402836/277246615-43b01d20-6ed7-4e92-8aed-85420c9a4de3.png" width=35%/>
+
+Note that the symbolic algorithm only approximates landmarks in four fingers (not including the metacarpophalangeal joints).
 
 ## Authors
 
