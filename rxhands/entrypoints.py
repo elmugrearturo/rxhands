@@ -10,7 +10,7 @@ import skimage
 
 from rxhands.auxiliary import *
 from rxhands.cut_img import crop_image
-from rxhands.multi_mask_model import load_multi_mask_model
+from rxhands.neural_model import load_multi_mask_model
 from rxhands.dataset import show_multi_heatmap
 from rxhands.hand_model import Hand
 from rxhands.preprocessing import preprocess_image
