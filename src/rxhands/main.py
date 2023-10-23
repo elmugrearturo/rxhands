@@ -1,10 +1,20 @@
 #!/usr/bin/env python
 import os
 import argparse
+import urllib
 
 from rxhands.entrypoints import symbolic, neural
 
 def main():
+    current_folder = os.path.dirname(__file__)
+    model_path = os.path.join(current_folder, "bin", "model-heatmap-rxhands-raw.h5")
+    if not os.path.exists(model_path):
+        # Download
+        print("Downloading...")
+        urllib.request.urlretrieve("http://www.arturocuriel.com/uploads/model-heatmap-rxhands-raw.h5", 
+                                   model_path)
+        print("Completed")
+
     parser = argparse.ArgumentParser(prog="rxhands",
                                      description="Labels finger joints in hand x-rays",
                                      epilog="Just keep swimming")
